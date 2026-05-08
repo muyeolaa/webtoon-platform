@@ -1,9 +1,9 @@
 import { Controller, Get } from '@nestjs/common';
-import { AppService } from './app.service';
+import { NaverCrawlerService } from './webtoon/entities/naver.service';
 
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService) {}
+  constructor(private readonly appService: NaverCrawlerService) {}
 
   @Get('check')
   async check() {
