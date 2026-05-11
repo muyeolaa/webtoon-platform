@@ -1,5 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
-import { NaverCrawlerService } from './webtoon/entities/naver.service';
+import { NaverCrawlerService } from './webtoon/naver.service';
 
 @Controller()
 export class AppController {

@@ -2,16 +2,21 @@ import { Module } from "@nestjs/common";
 import { KakaoCrawlerService } from "./kakao.service";
 import { NaverCrawlerService } from "./naver.service";
 import { HttpModule } from "@nestjs/axios";
-import { WebtoonController } from "./webtoons.controller";
+import { WebtoonController } from "./webtoon.controller";
+import { TypeOrmModule } from "@nestjs/typeorm";
+import { Webtoon } from "./entities/webtoon.entity";
+import { WebtoonService } from "./webtoon.service";
 
 @Module({
     imports: [
-    HttpModule // 2. 여기에 추가! (NaverCrawlerService가 HttpService를 쓸 수 있게 해줍니다)
+    HttpModule,
+    TypeOrmModule.forFeature([Webtoon]),
   ],
   controllers: [WebtoonController],
   providers: [    
     NaverCrawlerService, 
-    KakaoCrawlerService
+    KakaoCrawlerService,
+    WebtoonService
   ],
   exports: [
     NaverCrawlerService, 

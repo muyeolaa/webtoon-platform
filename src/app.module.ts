@@ -1,20 +1,27 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { WebtoonModule } from './webtoon/entities/webtoon.module';
+import { ConfigModule } from '@nestjs/config'; 
+import { WebtoonModule } from './webtoon/webtoon.module';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
     TypeOrmModule.forRoot({
-      type: 'postgres',        // 👈 mysql에서 postgres로 변경!
+      type: 'postgres',
       host: 'localhost',
-      port: 5432,              // 👈 PostgreSQL의 기본 포트는 5432입니다.
-      username: 'postgres',    // 👈 기본 관리자 아이디 (보통 'postgres'를 씁니다)
-      password: 'password',    // 본인이 설치할 때 설정한 비밀번호
-      database: 'webtoon_db',  // 사용할 DB 이름
-      entities: [WebtoonModule],
+      port: parseInt(process.env.DB_PORT as string, 10),
+      username: 'postgres',
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_DATABASE,
+      // 💡 수정 1: Entity는 엔티티 파일을 넣거나, 아래처럼 자동 검색하게 만듭니다.
+      entities: [__dirname + '/**/*.entity{.ts,.js}'], 
       synchronize: true,       
     }),
-    TypeOrmModule.forFeature([WebtoonModule]),
+    
+    // 💡 수정 2: 웹툰 모듈을 드디어 본사 출근부에 정식 등록합니다!
+    WebtoonModule, 
   ],  
   controllers: [],
   providers: [],

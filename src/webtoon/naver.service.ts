@@ -1,14 +1,21 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
-import { NaverWebtoonDto } from '../dto/naver-item.dto';
+import { NaverWebtoonDto } from './dto/naver-item.dto';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Webtoon } from './entities/webtoon.entity';
+import { Repository } from 'typeorm';
 
 @Injectable()
 export class NaverCrawlerService {
   private readonly logger = new Logger(NaverCrawlerService.name);
 
-  constructor(private readonly httpService: HttpService) {}
-
+constructor(
+    private readonly httpService: HttpService,
+    // 👇 1. DB를 조종할 수 있는 마법의 지팡이(Repository)를 받습니다.
+    @InjectRepository(Webtoon)
+    private readonly webtoonRepository: Repository<Webtoon>,
+  ) {}
   async getNaverWebtoons() {
     const url = 'https://comic.naver.com/api/webtoon/titlelist/weekday?order=user';
     
@@ -52,6 +59,7 @@ export class NaverCrawlerService {
             bm: rawWebtoon.bm,
             starScore: rawWebtoon.starScore,
             publishDays: [rawWebtoon.today], // 여기서 최초로 배열 형태로 감싸줍니다.
+            platform:"naver"
           };
           uniqueWebtoonsMap.set(id, newWebtoonDto);
         }
@@ -60,17 +68,21 @@ export class NaverCrawlerService {
       // 맵의 값들만 꺼내서 최종 배열로 만듭니다.
       const finalWebtoonList = Array.from(uniqueWebtoonsMap.values());
 
-      // ==========================================
       // [4단계] 서빙하기 (결과 확인 및 Return)
-      // ==========================================
-      this.logger.log(`🚀 데이터 정제 성공! 총 ${finalWebtoonList.length}개 완료`,finalWebtoonList[0]);
+      this.logger.log(`DB에 데이터 저장을 시작합니다... (${finalWebtoonList.length}개)`);
+      // upsert: 이미 있는 titleId면 업데이트, 없으면 새로 생성!
+      await this.webtoonRepository.upsert(finalWebtoonList, ['titleId']);
       
-      // 💡 핵심: 기존에는 쓸데없는 정보가 섞인 원본 'data'를 리턴했지만,
-      // 이제는 우리가 예쁘게 포장한 'finalWebtoonList'를 리턴해야 합니다!
-      return finalWebtoonList;
+      this.logger.log(`✅ DB 저장(Upsert) 완벽하게 성공!`);
+
+      // 브라우저에는 저장 완료 메시지를 보내줍니다.
+      return { 
+        message: "네이버 웹툰 데이터 DB 저장 완료!", 
+        count: finalWebtoonList.length 
+      };
 
     } catch (error) {
-      this.logger.error('❌ 데이터 수집 실패!', error);
+      this.logger.error('❌ 데이터 수집 또는 저장 실패!', error);
       throw error;
     }
   }

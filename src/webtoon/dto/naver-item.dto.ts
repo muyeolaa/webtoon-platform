@@ -9,4 +9,5 @@ export class NaverWebtoonDto {
   starScore?: number;    // 네이버 평점
   publishDays?:string[]; //연제 요일 
   newScore?: number;     // 늑구 평점
+  platform: string ="naver";
 }
