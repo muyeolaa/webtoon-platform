@@ -1,7 +1,7 @@
 // src/webtoons/webtoons.controller.ts
-import { Controller, Get } from '@nestjs/common';
-import { NaverCrawlerService } from './naver.service';
-import { KakaoCrawlerService } from './kakao.service';
+import { Controller, Get, Query } from '@nestjs/common';
+import { NaverCrawlerService } from './naver-crawler.service';
+import { KakaoCrawlerService } from './kakao-crawler.service';
 import { WebtoonService } from './webtoon.service';
 
 @Controller('webtoon') // 주소 앞에 /webtoons 가 붙습니다.
@@ -23,8 +23,25 @@ export class WebtoonController {
   }
 
   @Get('list')
-  async getWebtoonList() {
-    // 매니저에게 "다 가져와!" 시키고, 그 결과를 바로 손님(브라우저)에게 던져줍니다.
-    return await this.webtoonService.findAllWebtoons();
-  }  
+  async getList(
+    @Query('page') page: string,
+    @Query('limit') limit: string,
+    @Query('platform') platform?: string,
+    @Query('day') day?: string,
+    @Query('sort') sort?: string,
+    @Query('search') search?: string,
+  ) {
+    const pageNum = Number(page) || 1;
+    const limitNum = Number(limit) || 21;
+
+    // 서비스에게 받은 파라미터를 전부 토스해줍니다!
+    return await this.webtoonService.getPaginatedWebtoons(
+      pageNum,
+      limitNum,
+      platform,
+      day,
+      sort,
+      search,
+    );
+  }
 }

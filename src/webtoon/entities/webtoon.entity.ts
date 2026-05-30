@@ -1,10 +1,10 @@
 // src/webtoon/entities/webtoon.entity.ts
-import { Entity, PrimaryColumn, Column } from 'typeorm';
+import { Entity, PrimaryColumn, Column, UpdateDateColumn } from 'typeorm';
 
 @Entity('webtoon_table') // DB에 만들어질 진짜 테이블 이름
 export class Webtoon {
-  @PrimaryColumn() // 고유 ID (네이버/카카오의 웹툰 고유번호)
-  titleId!: number;
+  @PrimaryColumn()
+  id!: string;
 
   @Column()
   titleName!: string;
@@ -34,4 +34,18 @@ export class Webtoon {
   // 💡 플랫폼 구분표 (네이버인지 카카오인지)
   @Column({ default: 'naver' })
   platform!: string;
+
+  // 🚀 1. 조회수 (아무도 안 봤으니 기본값 0)
+  @Column({ default: 0 })
+  viewCount?: number;
+
+  // 🚀 2. 별점 (아직 평가가 없으니 기본값 0, 소수점도 들어갈 수 있게 float 타입 사용)
+  @Column({ type: 'float', default: 0 })
+  starRating?: number;
+
+  // 🚀 3. 업데이트 날짜
+  // TypeORM의 꿀기능! @UpdateDateColumn을 쓰면 데이터가 수정될 때마다
+  // 백엔드가 알아서 현재 시간으로 갱신해 줍니다.
+  @UpdateDateColumn()
+  updatedAt?: Date;
 }
