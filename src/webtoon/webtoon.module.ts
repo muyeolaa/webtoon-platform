@@ -7,15 +7,18 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Webtoon } from './entities/webtoon.entity';
 import { WebtoonService } from './webtoon.service';
 import { WebtoonSchedulerService } from './webtoon-scheduler.service';
+import { NaverEpisodeCrawlerService } from './naver-episode-crawler.service';
+import { Episode } from './entities/episode.entity';
 
 @Module({
-  imports: [HttpModule, TypeOrmModule.forFeature([Webtoon])],
+  imports: [HttpModule, TypeOrmModule.forFeature([Webtoon, Episode])],
   controllers: [WebtoonController],
   providers: [
     NaverCrawlerService,
     KakaoCrawlerService,
     WebtoonService,
     WebtoonSchedulerService,
+    NaverEpisodeCrawlerService,
   ],
   exports: [NaverCrawlerService, KakaoCrawlerService],
 })

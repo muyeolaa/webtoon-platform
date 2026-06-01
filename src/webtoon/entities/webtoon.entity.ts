@@ -1,5 +1,12 @@
 // src/webtoon/entities/webtoon.entity.ts
-import { Entity, PrimaryColumn, Column, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryColumn,
+  Column,
+  UpdateDateColumn,
+  OneToMany,
+} from 'typeorm';
+import { Episode } from './episode.entity';
 
 @Entity('webtoon_table') // DB에 만들어질 진짜 테이블 이름
 export class Webtoon {
@@ -48,4 +55,7 @@ export class Webtoon {
   // 백엔드가 알아서 현재 시간으로 갱신해 줍니다.
   @UpdateDateColumn()
   updatedAt?: Date;
+
+  @OneToMany(() => Episode, (episode) => episode.webtoon)
+  episodes?: Episode[];
 }

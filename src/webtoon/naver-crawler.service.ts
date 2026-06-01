@@ -11,7 +11,7 @@ export class NaverCrawlerService {
   private readonly logger = new Logger(NaverCrawlerService.name);
 
   constructor(
-    private readonly httpService: HttpService,  
+    private readonly httpService: HttpService,
     // 👇 1. DB를 조종할 수 있는 마법의 지팡이(Repository)를 받습니다.
     @InjectRepository(Webtoon)
     private readonly webtoonRepository: Repository<Webtoon>,

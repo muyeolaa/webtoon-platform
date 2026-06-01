@@ -4,6 +4,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, ArrayContains, ILike } from 'typeorm';
 import { Webtoon } from './entities/webtoon.entity';
 
+// 1초, 2초 기다리게 만드는 커스텀 함수
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 @Injectable()
 export class WebtoonService {
   constructor(
@@ -31,15 +34,14 @@ export class WebtoonService {
 
     // 🚀 1. 프론트엔드의 한글을 DB의 영어로 바꿔주는 번역기(사전)를 만듭니다.
     const dayTranslator: Record<string, string> = {
-      월: 'MONDAY',
-      화: 'TUESDAY',
-      수: 'WEDNESDAY',
-      목: 'THURSDAY',
-      금: 'FRIDAY',
-      토: 'SATURDAY',
-      일: 'SUNDAY',
-      // 💡 만약 DB에 완결 웹툰이 'FINISHED' 등으로 저장되어 있다면 아래에 추가!
-      // '완결': 'FINISHED'
+      mon: 'MONDAY',
+      tue: 'TUESDAY',
+      wed: 'WEDNESDAY',
+      thu: 'THURSDAY',
+      fri: 'FRIDAY',
+      sat: 'SATURDAY',
+      sun: 'SUNDAY',
+      end: 'FINISHED', // 💡 DB에 저장된 완결 웹툰의 상태값으로 맞춰주세요.
     };
 
     if (platform && platform !== '전체') {
