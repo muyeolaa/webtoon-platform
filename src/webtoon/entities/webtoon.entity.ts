@@ -13,6 +13,9 @@ export class Webtoon {
   @PrimaryColumn()
   id!: string;
 
+  @Column({ nullable: true }) // 이미 저장된 기존 데이터들이 에러 나지 않게 임시로 비워둘 수 있게(nullable) 해주는 센스!
+  titleId!: string;
+
   @Column()
   titleName!: string;
 

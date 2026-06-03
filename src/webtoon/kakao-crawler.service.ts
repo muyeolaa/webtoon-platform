@@ -72,6 +72,7 @@ export class KakaoCrawlerService {
 
             return {
               id: `kakao_${item.series_id}`, // "kakao_67740423"
+              titleId: item.series_id,
               titleName: item.title,
               author: item.authors || '작자 미상', // 👈 이제 정확한 작가 이름이 들어갑니다!
               thumbnailUrl: fullThumbnailUrl,

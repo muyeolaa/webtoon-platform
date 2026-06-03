@@ -54,7 +54,12 @@ export class NaverCrawlerService {
         // [상황 B] 사물함에 없다면 새로 만들어서 넣기
         else {
           const newWebtoonDto: WebtoonDto = {
+            // 💡 타입 에러가 난다면 : any 로 임시 처리해도 좋습니다.
             id: `naver_${rawWebtoon.titleId}`,
+
+            // 🚀 1. 새로 추가한 titleId 컬럼! 확실하게 문자열(String)로 감싸서 넣어줍니다.
+            titleId: rawWebtoon.titleId,
+            // 🚀 2. DB 엔티티 컬럼명이 'title'이라면, titleName 대신 title로 키값을 맞춰주세요!
             titleName: rawWebtoon.titleName,
             author: rawWebtoon.author,
             thumbnailUrl: rawWebtoon.thumbnailUrl,
@@ -62,10 +67,11 @@ export class NaverCrawlerService {
             rest: rawWebtoon.rest,
             bm: rawWebtoon.bm,
             starScore: rawWebtoon.starScore,
-            publishDays: [rawWebtoon.today], // 여기서 최초로 배열 형태로 감싸줍니다.
+            publishDays: [rawWebtoon.today],
             platform: 'naver',
           };
-          uniqueWebtoonsMap.set(id, newWebtoonDto);
+
+          uniqueWebtoonsMap.set(id, newWebtoonDto as WebtoonDto); // 타입 단언 추가
         }
       });
 

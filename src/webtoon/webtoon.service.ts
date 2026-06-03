@@ -53,20 +53,19 @@ export class WebtoonService {
       if (platform === '카카오') where.platform = 'kakao';
     }
 
-    if (day) {
-      // 🚀 2. 번역기를 돌려서 진짜 DB용 영어 단어를 찾습니다. (예: '월' -> 'MONDAY')
-      const englishDay = dayTranslator[day];
-
-      if (englishDay) {
-        // 번역된 영어 단어로 DB에 포함 여부를 묻습니다!
-        where.publishDays = ArrayContains([englishDay]);
-      }
-    }
+    // 번역된 영어 단어로 DB에 포함 여부를 묻습니다!
 
     if (search) {
       // `%` 기호는 "이 앞뒤로 무슨 글자가 오든 상관없다"는 뜻의 와일드카드입니다.
-      // 예: "%나혼자%" -> "나혼자만 레벨업", "나혼자 산다" 모두 검색됨
       where.titleName = ILike(`%${search}%`);
+    } else {
+      if (day) {
+        // 🚀 2. 번역기를 돌려서 진짜 DB용 영어 단어를 찾습니다. (예: '월' -> 'MONDAY')
+        const englishDay = dayTranslator[day];
+        if (englishDay) {
+          where.publishDays = ArrayContains([englishDay]);
+        }
+      }
     }
 
     // 📊 2. 동적 ORDER BY 정렬문 조립하기
@@ -99,5 +98,19 @@ export class WebtoonService {
         currentPage: page,
       },
     };
+  }
+
+  async getWebtoonDetail(id: string) {
+    // 💡 핵심: 웹툰 정보뿐만 아니라 'episodes' 관계(Relation)까지 같이 묶어서 가져옵니다!
+    return await this.webtoonRepository.findOne({
+      where: { id },
+      relations: ['episodes'],
+      order: {
+        // 에피소드는 1화부터 볼 수 있게 오름차순(ASC) 또는 최신화부터(DESC) 정렬! (여기선 최신화 먼저)
+        episodes: {
+          episodeNo: 'DESC',
+        },
+      },
+    });
   }
 }

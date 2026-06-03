@@ -5,10 +5,12 @@ import {
   Column,
   ManyToOne,
   JoinColumn,
+  Unique,
 } from 'typeorm';
 import { Webtoon } from './webtoon.entity'; // 기존에 만든 웹툰 엔티티
 
 @Entity('episodes')
+@Unique(['titleId', 'episodeNo'])
 export class Episode {
   @PrimaryGeneratedColumn()
   id?: number;

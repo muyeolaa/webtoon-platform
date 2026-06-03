@@ -1,5 +1,6 @@
 export class WebtoonDto {
   id!: string; // 네이버 전용 고유 ID
+  titleId!: string;
   titleName!: string; // 웹툰 제목
   author!: string; // 작가 (예: "작가1 / 작가2")
   thumbnailUrl?: string; // 썸네일 이미지
