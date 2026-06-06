@@ -1,5 +1,5 @@
 // src/webtoons/webtoons.controller.ts
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { NaverCrawlerService } from './naver-crawler.service';
 import { KakaoCrawlerService } from './kakao-crawler.service';
 import { WebtoonService } from './webtoon.service';
@@ -80,5 +80,11 @@ export class WebtoonController {
   @Get(':id')
   async getWebtoonDetail(@Param('id') id: string) {
     return await this.webtoonService.getWebtoonDetail(id);
+  }
+
+  @Post('sync-naver-details')
+  async syncNaverDetails() {
+    this.naverService.syncMissingDetails();
+    return { message: '시작됨' };
   }
 }

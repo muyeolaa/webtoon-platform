@@ -5,8 +5,11 @@ import {
   Column,
   UpdateDateColumn,
   OneToMany,
+  ManyToMany,
+  JoinTable,
 } from 'typeorm';
 import { Episode } from './episode.entity';
+import { Genre } from './genre.entity';
 
 @Entity('webtoon_table') // DB에 만들어질 진짜 테이블 이름
 export class Webtoon {
@@ -61,4 +64,19 @@ export class Webtoon {
 
   @OneToMany(() => Episode, (episode) => episode.webtoon)
   episodes?: Episode[];
+
+  @Column({ type: 'text', nullable: true })
+  description!: string;
+
+  // 🚀 2. 다대다(N:M) 관계의 하이라이트!
+  @ManyToMany(() => Genre, (genre) => genre.webtoons, {
+    cascade: true, // 💡 꿀팁: 웹툰을 저장할 때, 새로운 장르가 있으면 알아서 DB에 같이 저장(INSERT)해주는 마법의 옵션!
+  })
+  // 다대다 관계에서는 '중간 연결 테이블'이 필요한데, @JoinTable()을 달아주면 TypeORM이 알아서 만들어줍니다.
+  @JoinTable({
+    name: 'webtoon_genres', // 알아서 만들어질 중간 테이블 이름
+    joinColumn: { name: 'webtoon_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'genre_id', referencedColumnName: 'id' },
+  })
+  genres?: Genre[];
 }

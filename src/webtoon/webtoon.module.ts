@@ -9,9 +9,10 @@ import { WebtoonService } from './webtoon.service';
 import { WebtoonSchedulerService } from './webtoon-scheduler.service';
 import { NaverEpisodeCrawlerService } from './naver-episode-crawler.service';
 import { Episode } from './entities/episode.entity';
+import { Genre } from './entities/genre.entity';
 
 @Module({
-  imports: [HttpModule, TypeOrmModule.forFeature([Webtoon, Episode])],
+  imports: [HttpModule, TypeOrmModule.forFeature([Webtoon, Episode, Genre])],
   controllers: [WebtoonController],
   providers: [
     NaverCrawlerService,

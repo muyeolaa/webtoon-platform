@@ -1,8 +1,9 @@
 // src/webtoon/webtoon.service.ts
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, ArrayContains, ILike } from 'typeorm';
 import { Webtoon } from './entities/webtoon.entity';
+import { Genre } from './entities/genre.entity';
 
 // 1초, 2초 기다리게 만드는 커스텀 함수
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -12,6 +13,9 @@ export class WebtoonService {
   constructor(
     @InjectRepository(Webtoon)
     private readonly webtoonRepository: Repository<Webtoon>,
+
+    @InjectRepository(Genre)
+    private readonly genreRepository: Repository<Genre>,
   ) {}
 
   async findAllWebtoons() {
@@ -112,5 +116,53 @@ export class WebtoonService {
         },
       },
     });
+  }
+
+  /**
+   * 크롤러가 상세 페이지에서 소개글과 해시태그를 긁어오면 이 함수를 호출합니다!
+   * @param webtoonId 업데이트할 웹툰의 ID
+   * @param description 긁어온 소개글
+   * @param genreNames 긁어온 해시태그 배열 (예: ['판타지', '액션', '내가진짜열심히쓴'])
+   */
+  async updateWebtoonDetails(
+    webtoonId: string,
+    description: string,
+    genreNames: string[],
+  ) {
+    // 1. 업데이트할 웹툰이 DB에 있는지 찾기
+    const webtoon = await this.webtoonRepository.findOne({
+      where: { id: webtoonId },
+    });
+
+    if (!webtoon) {
+      throw new NotFoundException(
+        `ID가 ${webtoonId}인 웹툰을 찾을 수 없습니다.`,
+      );
+    }
+
+    // 🚀 2. 장르 3단계 콤보 시작! (조회 -> 생성)
+
+    const uniqueGenreNames = [...new Set(genreNames)];
+    const genres: Genre[] = []; // 완성된 장르 엔티티들을 담을 빈 배열
+
+    // 긁어온 해시태그(['판타지', '액션'])를 하나씩 꺼내서 검사합니다.
+    for (const name of uniqueGenreNames) {
+      let genre = await this.genreRepository.findOne({ where: { name } });
+
+      if (!genre) {
+        genre = this.genreRepository.create({ name });
+        genre = await this.genreRepository.save(genre);
+      }
+
+      genres.push(genre);
+    }
+    // 🚀 3. [콤보 3: 연결] 웹툰에 소개글과 완성된 장르 배열을 장착!
+    webtoon.description = description;
+    webtoon.genres = genres;
+
+    // 4. 최종 저장 (이 한 줄이 실행될 때 webtoon_genres 중간 테이블에 알아서 연결 데이터가 들어갑니다!)
+    const updatedWebtoon = await this.webtoonRepository.save(webtoon);
+
+    return updatedWebtoon;
   }
 }

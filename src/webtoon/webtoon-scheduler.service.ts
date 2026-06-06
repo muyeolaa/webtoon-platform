@@ -35,8 +35,8 @@ export class WebtoonSchedulerService {
 
       // 1. 네이버 크롤링 (순차 실행)
       this.logger.log('▶️ 네이버 웹툰 데이터 동기화 중...');
-      await this.naverCrawlerService.getNaverWebtoons();
-
+      await this.naverCrawlerService.getNaverWebtoons(); // 웹툰 데이터 수집
+      await this.naverCrawlerService.syncMissingDetails(); // 수집된 데이터에 상세설명이없는 신작의 경우 상세설명,해시태그 추가수집
       // 2. 카카오 크롤링 (순차 실행)
       this.logger.log('▶️ 카카오 웹툰 데이터 동기화 중...');
       await this.kakaoCrawlerService.getKakaoWebtoons();
