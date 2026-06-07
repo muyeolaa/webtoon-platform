@@ -1,9 +1,10 @@
-// src/webtoons/webtoons.controller.ts
+// src/webtoon/webtoon.controller.ts
 import { Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { NaverCrawlerService } from './naver-crawler.service';
 import { KakaoCrawlerService } from './kakao-crawler.service';
 import { WebtoonService } from './webtoon.service';
 import { NaverEpisodeCrawlerService } from './naver-episode-crawler.service';
+import { WebtoonSchedulerService } from './webtoon-scheduler.service';
 
 @Controller('webtoon') // 주소 앞에 /webtoon 이 붙습니다.
 export class WebtoonController {
@@ -12,6 +13,7 @@ export class WebtoonController {
     private readonly kakaoService: KakaoCrawlerService,
     private readonly webtoonService: WebtoonService,
     private readonly naverEpisodeCrawler: NaverEpisodeCrawlerService,
+    private readonly webtoonSchedulerService: WebtoonSchedulerService,
   ) {}
 
   @Get('naver') // 접속 주소: GET /webtoon/naver
@@ -47,13 +49,23 @@ export class WebtoonController {
     );
   }
 
+  // =========================================================================
+  // 🚀 회차 데이터 선택 수집 (maxPage 옵션 추가)
+  // =========================================================================
   @Get('seed-naver-episode/:titleId')
-  async seedNaverEpisode(@Param('titleId') titleId: string) {
-    // 크롤러 서비스의 함수를 실행!
-    return this.naverEpisodeCrawler.seedSingleWebtoonEpisodes(titleId);
+  async seedNaverEpisode(
+    @Param('titleId') titleId: string,
+    @Query('maxPage') maxPage?: string,
+  ) {
+    // 포스트맨에서 ?maxPage=1 처럼 주면 1페이지만, 안 주면 999(전체)를 긁어옵니다.
+    const limit = maxPage ? parseInt(maxPage, 10) : 999;
+    return await this.naverEpisodeCrawler.seedSingleWebtoonEpisodes(
+      titleId,
+      limit,
+    );
   }
 
-  // 🚀 전체 수집 스위치 (강제 업데이트 옵션 추가!)
+  //  전체 수집 스위치
   @Get('seed-naver-all')
   async seedAllNaverEpisodes(
     @Query('force') force?: string,
@@ -77,14 +89,48 @@ export class WebtoonController {
       notice: '터미널(콘솔) 로그를 확인하세요.',
     };
   }
+
   @Get(':id')
   async getWebtoonDetail(@Param('id') id: string) {
     return await this.webtoonService.getWebtoonDetail(id);
   }
 
+  // 웹툰 상세정보, 해시태크 수집
   @Post('sync-naver-details')
   async syncNaverDetails() {
     this.naverService.syncMissingDetails();
     return { message: '시작됨' };
+  }
+
+  //완결 웹툰 데이터수집
+  @Post('sync-naver-finished')
+  async syncNaverFinished(@Query('maxPage') maxPage?: string) {
+    // 포스트맨에서 주소창 뒤에 ?maxPage=5 처럼 값을 주면 그만큼만 수집하고,
+    // 아무 값도 안 주면 기본값으로 999페이지(전체 싹쓸이)를 수집하도록 설정합니다!
+    const limit = maxPage ? parseInt(maxPage, 10) : 999;
+
+    // 서비스의 함수를 호출하면서 limit 값을 넘겨줍니다.
+    return await this.naverService.getFinishedNaverWebtoons(limit);
+  }
+
+  // =========================================================================
+  // 🚀 매일 새벽용: 오늘 업데이트된 웹툰의 최신 회차(1페이지)만 쏙쏙 수집 스위치
+  // =========================================================================
+  @Post('sync-naver-updated-episodes')
+  async syncNaverUpdatedEpisodes() {
+    // 1페이지만 긁어오는 거라 금방 끝나니까, 결과를 포스트맨 화면에서 바로 볼 수 있게 await를 걸어둡니다.
+    return await this.naverEpisodeCrawler.syncUpdatedEpisodes();
+  }
+
+  @Post('run-scheduler')
+  async runSchedulerManually() {
+    // 💡 전체 과정이 오래 걸리니까, 브라우저/포스트맨이 멈추지 않도록 'await'를 뺐어! (백그라운드 실행)
+    this.webtoonSchedulerService.handleDailyCrawling();
+
+    return {
+      message:
+        '🚀 [Webtoon Auto Bot] 데일리 스케줄러가 백그라운드에서 강제 실행되었습니다!',
+      notice: '자세한 진행 상황은 터미널 로그를 확인해 주세요.',
+    };
   }
 }

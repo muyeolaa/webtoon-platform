@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like } from 'typeorm';
-import { Episode } from './entities/episode.entity'; // 경로가 맞는지 확인해줘!
+import { Episode } from './entities/episode.entity';
 import { Webtoon } from './entities/webtoon.entity';
 
 // 1초 휴식용 수면제 함수
@@ -12,14 +12,15 @@ export class NaverEpisodeCrawlerService {
   constructor(
     @InjectRepository(Episode)
     private readonly episodeRepository: Repository<Episode>,
-
-    // 🚀 웹툰 테이블에서 ID를 꺼내오기 위해 주입!
     @InjectRepository(Webtoon)
     private readonly webtoonRepository: Repository<Webtoon>,
   ) {}
 
-  // 네이버 웹툰 1개의 모든 회차를 긁어오는 함수
-  async seedSingleWebtoonEpisodes(titleId: string) {
+  // =========================================================================
+  // 🟢 1. 단일 웹툰 회차 수집기 (최초 싹쓸이 & 1페이지 빠른 업데이트 겸용)
+  // =========================================================================
+  // 🚀 수정: maxPage 파라미터를 추가해서, 원할 때는 1페이지만 긁고 빠질 수 있게 만듭니다!
+  async seedSingleWebtoonEpisodes(titleId: string, maxPage: number = 999) {
     let currentPage = 1;
     let totalPages = 1;
 
@@ -29,7 +30,7 @@ export class NaverEpisodeCrawlerService {
 
     if (!parentWebtoon) {
       console.error(
-        `❌ DB에서 부모 웹툰(naver_${titleId})을 찾을 수 없어 에피소드를 저장할 수 없습니다.`,
+        `❌ DB에서 부모 웹툰(naver_${titleId})을 찾을 수 없습니다.`,
       );
       return false;
     }
@@ -42,7 +43,9 @@ export class NaverEpisodeCrawlerService {
         const response = await fetch(url);
         const data = await response.json();
 
-        totalPages = data.pageInfo?.totalPages || 1;
+        // 🚀 핵심: API가 알려준 전체 페이지와 우리가 제한한 maxPage 중 더 작은 값을 씁니다.
+        // (maxPage가 1이면 무조건 1페이지에서 끝남!)
+        totalPages = Math.min(data.pageInfo?.totalPages || 1, maxPage);
 
         // 무료와 유료(미리보기) 회차 합치기
         const freeArticles = data.articleList || [];
@@ -59,8 +62,7 @@ export class NaverEpisodeCrawlerService {
           webtoon: parentWebtoon,
         }));
 
-        // 🚀 수정 1: save() 대신 upsert()를 사용해 중복 에러를 방지하고 덮어쓰기(Update) 실행!
-        // 기준점: 'titleId'와 'episodeNo'가 같으면 기존 데이터를 덮어씁니다.
+        // 덮어쓰기 (Upsert)
         await this.episodeRepository.upsert(episodesToSave, [
           'titleId',
           'episodeNo',
@@ -70,7 +72,6 @@ export class NaverEpisodeCrawlerService {
           `✅ [네이버 ${titleId}] ${currentPage}/${totalPages} 페이지 저장 완료!`,
         );
 
-        // 다음 페이지로 넘어가기 전 1초 휴식
         currentPage++;
         if (currentPage <= totalPages) {
           await sleep(1000);
@@ -80,17 +81,17 @@ export class NaverEpisodeCrawlerService {
           `❌ [네이버 ${titleId}] ${currentPage}페이지 수집 에러:`,
           (error as Error).message,
         );
-        break; // 에러 발생 시 탈출
+        break;
       }
     } while (currentPage <= totalPages);
 
     console.log(`🎉 [네이버] ${titleId} 웹툰 회차 수집 완료!`);
-    return true; // 무사히 끝나면 "나 성공했어(true)" 라고 알려주기
+    return true;
   }
 
-  // 전체 웹툰 회차 긁어 모으기
-  // 🚀 수정 2: forceUpdate 스위치 추가 (기본값 false)
-  // 🚀 수정 1: startNumber 파라미터 추가 (기본값은 1번부터)
+  // =========================================================================
+  // 🟢 2. 최초 1회용: 전체 웹툰 모든 회차 싹쓸이 로직 (기존 유지)
+  // =========================================================================
   async seedAllNaverEpisodes(
     forceUpdate: boolean = false,
     startNumber: number = 1,
@@ -101,31 +102,23 @@ export class NaverEpisodeCrawlerService {
     });
 
     console.log(
-      `🔥 총 ${naverWebtoons.length}개의 네이버 웹툰 전체 수집을 시작합니다! (강제 업데이트: ${forceUpdate}, 시작 번호: ${startNumber})`,
+      `🔥 총 ${naverWebtoons.length}개의 네이버 웹툰 전체 수집 시작!`,
     );
 
     const failedWebtoons: string[] = [];
-
-    // 🚀 수정 2: 배열은 0부터 시작하니까, 입력받은 번호에서 1을 빼줍니다. (170번 -> 인덱스 169)
     const startIndex = startNumber > 0 ? startNumber - 1 : 0;
 
-    // 🚀 수정 3: i = 0 이 아니라 i = startIndex 부터 반복문을 시작합니다!
     for (let i = startIndex; i < naverWebtoons.length; i++) {
       const webtoon = naverWebtoons[i];
+      const numericTitleId = webtoon.id.replace('naver_', '');
 
-      const rawId = webtoon.id;
-      const numericTitleId = rawId.replace('naver_', '');
-
-      // 1. 이미 수집된 웹툰인지 확인
       const existingEpisodeCount = await this.episodeRepository.count({
         where: { titleId: numericTitleId },
       });
 
-      // 🚀 수정 3: 스위치가 꺼져 있고(&&), 이미 데이터가 있다면 건너뜁니다!
-      // (만약 forceUpdate가 true라면 이 조건문을 무시하고 다시 긁어옵니다)
       if (!forceUpdate && existingEpisodeCount > 0) {
         console.log(
-          `⏩ [${i + 1}/${naverWebtoons.length}] 웹툰(API ID: ${numericTitleId})은 이미 수집되어 건너뜁니다!`,
+          `⏩ [${i + 1}/${naverWebtoons.length}] 이미 수집되어 건너뜁니다!`,
         );
         continue;
       }
@@ -134,30 +127,61 @@ export class NaverEpisodeCrawlerService {
         `\n▶️ [${i + 1}/${naverWebtoons.length}] 웹툰(API ID: ${numericTitleId}) 수집 시작...`,
       );
 
-      // 2. 단일 수집기 호출 및 성공 여부(true/false) 받기
       const isSuccess = await this.seedSingleWebtoonEpisodes(numericTitleId);
 
-      // 3. 실패했다면 블랙리스트에 기록
-      if (!isSuccess) {
-        failedWebtoons.push(numericTitleId);
-      }
+      if (!isSuccess) failedWebtoons.push(numericTitleId);
 
-      console.log(`⏳ 다음 웹툰으로 넘어가기 전 3초 휴식...`);
-      await sleep(3000);
+      await sleep(1000); // 전체 수집 시 안전을 위해 1초 대기
     }
 
-    console.log(`🎉 모든 네이버 웹툰 회차 수집이 완벽하게 끝났습니다!`);
-
-    // 4. 마지막 결과 보고
     if (failedWebtoons.length > 0) {
-      console.log(
-        `🚨 수집에 실패한 웹툰 ID 목록 (${failedWebtoons.length}개):`,
-        failedWebtoons,
-      );
+      console.log(`🚨 에러 발생 ID 목록:`, failedWebtoons);
     } else {
-      console.log(`✨ 완벽합니다! 단 하나의 에러도 없이 모두 수집되었습니다.`);
+      console.log(`✨ 완벽하게 모두 수집되었습니다.`);
     }
 
     return { message: '전체 수집 완료!' };
+  }
+
+  // =========================================================================
+  // 🚀 3. 매일 새벽용: 오늘 업데이트된 웹툰만 골라 "최신 1페이지"만 수집!
+  // =========================================================================
+  async syncUpdatedEpisodes() {
+    // 1. DB에서 오늘 업데이트된(up: true) 네이버 웹툰만 찾아냅니다.
+    const updatedWebtoons = await this.webtoonRepository.find({
+      where: { platform: 'naver', up: true },
+    });
+
+    console.log(
+      `👀 오늘 업데이트된 네이버 웹툰 ${updatedWebtoons.length}개의 최신 회차를 수집합니다.`,
+    );
+
+    if (updatedWebtoons.length === 0) {
+      return { message: '오늘 업데이트된 웹툰이 없습니다.' };
+    }
+
+    let successCount = 0;
+
+    for (const webtoon of updatedWebtoons) {
+      const numericTitleId = webtoon.id.replace('naver_', '');
+
+      // 2. 단일 수집기를 호출하되, maxPage를 '1'로 설정하여 1페이지만 빠르게 긁고 빠집니다!
+      const isSuccess = await this.seedSingleWebtoonEpisodes(numericTitleId, 1);
+
+      if (isSuccess) successCount++;
+
+      // 3. IP 차단 방지용 1초 휴식
+      await sleep(1000);
+    }
+
+    console.log(
+      `🎉 업데이트 회차 1페이지 동기화 완료! (성공: ${successCount}/${updatedWebtoons.length})`,
+    );
+
+    return {
+      message: '업데이트 회차 동기화 완료',
+      targetCount: updatedWebtoons.length,
+      successCount,
+    };
   }
 }

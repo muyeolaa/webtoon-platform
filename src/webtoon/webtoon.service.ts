@@ -48,13 +48,14 @@ export class WebtoonService {
       end: 'FINISHED', // 💡 DB에 저장된 완결 웹툰의 상태값으로 맞춰주세요.
     };
 
-    if (platform && platform !== '전체') {
-      // 프론트엔드에서 한글('네이버')로 보낼 수도 있고 영문('naver')으로 보낼 수도 있으니
-      // 네 DB에 저장된 형식에 맞춰 가공하는 로직이 필요할 수 있습니다.
-      // 여기서는 프론트가 보낸 문자열 그대로 DB에서 매칭합니다.
-      where.platform = platform;
-      if (platform === '네이버') where.platform = 'naver';
-      if (platform === '카카오') where.platform = 'kakao';
+    if (platform && platform !== '전체' && platform !== 'all') {
+      if (platform === '네이버' || platform === 'naver') {
+        where.platform = 'naver';
+      } else if (platform === '카카오' || platform === 'kakao') {
+        where.platform = 'kakao';
+      } else {
+        where.platform = platform; // lezhin 등 기타 플랫폼
+      }
     }
 
     // 번역된 영어 단어로 DB에 포함 여부를 묻습니다!
