@@ -48,6 +48,9 @@ export class Webtoon {
   @Column({ default: 'naver' })
   platform!: string;
 
+  @Column({ type: 'boolean', default: false })
+  isAdult!: boolean;
+
   // 🚀 1. 조회수 (아무도 안 봤으니 기본값 0)
   @Column({ default: 0 })
   viewCount?: number;

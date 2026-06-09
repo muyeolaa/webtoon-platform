@@ -93,6 +93,7 @@ export class NaverCrawlerService {
             titleName: rawWebtoon.titleName,
             author: rawWebtoon.author,
             thumbnailUrl: rawWebtoon.thumbnailUrl,
+            isAdult: rawWebtoon.adult === true,
             up: rawWebtoon.up || false,
             rest: rawWebtoon.rest || false,
             bm: rawWebtoon.bm || false,
@@ -169,7 +170,7 @@ export class NaverCrawlerService {
   }
 
   // =========================================================================
-  // 🚀 신규 로직 2: DB를 훑어서 빈칸(소개글 Null)인 웹툰만 찾아 연속 수집
+  // 🚀 신규 로직 2: DB를 훑어서 빈칸(소개글 Null)인 웹툰만 찾아 연속 수집  // 신작이면 소개글이 없으니 신작추적기능
   // =========================================================================
   async syncMissingDetails() {
     const targetWebtoons = await this.webtoonRepository.find({
@@ -266,6 +267,7 @@ export class NaverCrawlerService {
             titleName: item.titleName,
             author: item.author,
             thumbnailUrl: item.thumbnailUrl,
+            isAdult: item.adult === true,
             up: item.up || false,
             rest: item.rest || false,
             bm: item.bm || false,

@@ -90,6 +90,21 @@ export class WebtoonController {
     };
   }
 
+  // 회차 데이터가 없는 웹툰만 골라서 데이터 받아오기
+  @Get('seed-naver-missing')
+  async seedNaverMissingEpisodes() {
+    // 💡 누락된 웹툰이 많을 경우 시간이 꽤 걸릴 수 있으므로 'await'를 빼서 백그라운드로 돌립니다.
+    this.naverEpisodeCrawler.seedMissingEpisodes();
+
+    // 브라우저/포스트맨에는 즉각적으로 아래 메시지만 던져줍니다.
+    return {
+      message:
+        '🚀 누락된(19금 등) 네이버 웹툰 회차 재수집이 백그라운드에서 시작되었습니다!',
+      notice:
+        '서버 터미널 로그를 보시면 어떤 웹툰의 19금 회차들을 뚫어내고 있는지 실시간으로 확인할 수 있습니다.',
+    };
+  }
+
   @Get(':id')
   async getWebtoonDetail(@Param('id') id: string) {
     return await this.webtoonService.getWebtoonDetail(id);
@@ -131,6 +146,17 @@ export class WebtoonController {
       message:
         '🚀 [Webtoon Auto Bot] 데일리 스케줄러가 백그라운드에서 강제 실행되었습니다!',
       notice: '자세한 진행 상황은 터미널 로그를 확인해 주세요.',
+    };
+  }
+
+  @Post('seed-naver-adult-episodes')
+  async seedNaverAdultEpisodes() {
+    // 💡 19금 웹툰이 많을 수 있으니, 브라우저가 멈추지 않게 백그라운드로 실행합니다 (await 뺌)
+    this.naverEpisodeCrawler.seedAdultWebtoonEpisodes();
+
+    return {
+      message: '🔞 19금 성인 웹툰 회차 재수집이 백그라운드에서 시작되었습니다!',
+      notice: '서버 터미널 로그를 확인해 주세요.',
     };
   }
 }

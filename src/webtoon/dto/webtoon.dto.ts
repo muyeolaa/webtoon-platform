@@ -7,6 +7,7 @@ export class WebtoonDto {
   up?: boolean; // 업데이트 여부
   rest?: boolean; // 휴재 여부
   bm?: boolean; // 기다무(기다리면 무료) 여부
+  isAdult?: boolean;
   starScore?: number; // 네이버 평점
   publishDays?: string[]; //연제 요일
   newScore?: number; // 늑구 평점
