@@ -5,6 +5,7 @@ import { KakaoCrawlerService } from './kakao-crawler.service';
 import { WebtoonService } from './webtoon.service';
 import { NaverEpisodeCrawlerService } from './naver-episode-crawler.service';
 import { WebtoonSchedulerService } from './webtoon-scheduler.service';
+import { KakaoEpisodeCrawlerService } from './kakao-episode-crawler.service';
 
 @Controller('webtoon') // 주소 앞에 /webtoon 이 붙습니다.
 export class WebtoonController {
@@ -14,6 +15,7 @@ export class WebtoonController {
     private readonly webtoonService: WebtoonService,
     private readonly naverEpisodeCrawler: NaverEpisodeCrawlerService,
     private readonly webtoonSchedulerService: WebtoonSchedulerService,
+    private readonly kakaoEpisodeCrawler: KakaoEpisodeCrawlerService,
   ) {}
 
   @Get('naver') // 접속 주소: GET /webtoon/naver
@@ -105,6 +107,12 @@ export class WebtoonController {
     };
   }
 
+  @Get('seed-kakao-episode/:titleId')
+  async seedKakaoEpisode(@Param('titleId') titleId: string) {
+    // 결과를 포스트맨에서 바로 볼 수 있게 await를 걸어둡니다.
+    return await this.kakaoEpisodeCrawler.seedKakaoEpisodes(titleId);
+  }
+
   @Get(':id')
   async getWebtoonDetail(@Param('id') id: string) {
     return await this.webtoonService.getWebtoonDetail(id);
@@ -157,6 +165,24 @@ export class WebtoonController {
     return {
       message: '🔞 19금 성인 웹툰 회차 재수집이 백그라운드에서 시작되었습니다!',
       notice: '서버 터미널 로그를 확인해 주세요.',
+    };
+  }
+
+  // =========================================================================
+  // 🚀 카카오 전체 회차 싹쓸이 스위치 (이어하기 기능 지원)
+  // =========================================================================
+  @Post('seed-kakao-all-episodes')
+  async seedKakaoAllEpisodes(@Query('start') start?: string) {
+    // 포스트맨에서 ?start=150 을 보내면 150으로, 안 보내면 0으로 세팅합니다.
+    const startIndex = start ? parseInt(start, 10) : 0;
+
+    // 백그라운드 실행
+    this.kakaoEpisodeCrawler.seedAllKakaoEpisodes(startIndex);
+
+    return {
+      message: `🚀 카카오 웹툰 회차 수집이 ${startIndex}번째 웹툰부터 백그라운드에서 시작되었습니다!`,
+      notice:
+        '터미널 로그를 확인하세요. 중간에 멈추면 해당 번호를 기억했다가 ?start=번호 로 이어하기가 가능합니다.',
     };
   }
 }

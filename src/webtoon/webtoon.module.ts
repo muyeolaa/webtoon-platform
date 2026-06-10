@@ -10,6 +10,7 @@ import { WebtoonSchedulerService } from './webtoon-scheduler.service';
 import { NaverEpisodeCrawlerService } from './naver-episode-crawler.service';
 import { Episode } from './entities/episode.entity';
 import { Genre } from './entities/genre.entity';
+import { KakaoEpisodeCrawlerService } from './kakao-episode-crawler.service';
 
 @Module({
   imports: [HttpModule, TypeOrmModule.forFeature([Webtoon, Episode, Genre])],
@@ -20,6 +21,7 @@ import { Genre } from './entities/genre.entity';
     WebtoonService,
     WebtoonSchedulerService,
     NaverEpisodeCrawlerService,
+    KakaoEpisodeCrawlerService,
   ],
   exports: [NaverCrawlerService, KakaoCrawlerService],
 })

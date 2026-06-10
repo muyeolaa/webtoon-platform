@@ -35,9 +35,10 @@ export class Episode {
   @Column({ type: 'varchar', length: 50, nullable: true })
   uploadDate?: string;
 
-  // 💡 다이렉트 주소는 굳이 DB에 저장할 필요가 없습니다!
-  // 네이버는 무조건 `https://comic.naver.com/webtoon/detail?titleId=${titleId}&no=${episodeNo}`
-  // 규칙을 따르기 때문에, 프론트엔드에서 조립해서 쓰면 DB 용량을 아낄 수 있어요.
+  // 🚀 카카오처럼 다이렉트 주소 규칙이 불규칙한 플랫폼을 위해 URL을 직접 저장하는 컬럼 추가!
+  // nullable: true 이기 때문에, 기존에 저장된 네이버 데이터들에는 에러를 발생시키지 않습니다.
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  url?: string;
 
   // --- 아래는 관계(Relation) 설정 (선택 사항이지만 해두면 엄청 편함) ---
   @ManyToOne(() => Webtoon, (webtoon) => webtoon.episodes, {

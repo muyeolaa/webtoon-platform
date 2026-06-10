@@ -109,7 +109,7 @@ export class WebtoonService {
     // 💡 핵심: 웹툰 정보뿐만 아니라 'episodes' 관계(Relation)까지 같이 묶어서 가져옵니다!
     return await this.webtoonRepository.findOne({
       where: { id },
-      relations: ['episodes'],
+      relations: ['episodes', 'genres'],
       order: {
         // 에피소드는 1화부터 볼 수 있게 오름차순(ASC) 또는 최신화부터(DESC) 정렬! (여기선 최신화 먼저)
         episodes: {

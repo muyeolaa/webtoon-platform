@@ -112,11 +112,12 @@ export class KakaoCrawlerService {
               titleName: item.title,
               author: item.authors || '작자 미상',
               thumbnailUrl: fullThumbnailUrl,
-              up: false, // 카카오 메인 리스트에선 업데이트 여부가 없으므로 일단 false (상세에서 잡을 예정)
-              rest: item.state === 'ST62', // ST62가 휴재인 경우가 많음 (확인 필요)
+              up: false,
+              rest: item.state === 'ST62',
               bm: item.is_waitfree || item.business_model !== 'F',
-              publishDays: parsePublishDays(item.pub_period), // 👈 신작 탭에서도 정확한 요일이 박힘!
-              isAdult: item.age_grade === 19, // 🔞 나이 제한이 19면 성인웹툰으로 분류!
+              publishDays: parsePublishDays(item.pub_period),
+              isAdult: item.age_grade === 19,
+              // ❌ hashtags: extractedHashtags, <-- 이 줄은 삭제!
               starScore: 0,
               platform: 'kakao',
             };
