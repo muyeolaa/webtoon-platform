@@ -11,6 +11,8 @@ import { NaverEpisodeCrawlerService } from './naver-episode-crawler.service';
 import { Episode } from './entities/episode.entity';
 import { Genre } from './entities/genre.entity';
 import { KakaoEpisodeCrawlerService } from './kakao-episode-crawler.service';
+import { LezhinCrawlerService } from './lezhin-crawler.service';
+import { LezhinEpisodeCrawlerService } from './lezhin-episode-crawler.service';
 
 @Module({
   imports: [HttpModule, TypeOrmModule.forFeature([Webtoon, Episode, Genre])],
@@ -22,6 +24,9 @@ import { KakaoEpisodeCrawlerService } from './kakao-episode-crawler.service';
     WebtoonSchedulerService,
     NaverEpisodeCrawlerService,
     KakaoEpisodeCrawlerService,
+    LezhinCrawlerService,
+    KakaoEpisodeCrawlerService,
+    LezhinEpisodeCrawlerService,
   ],
   exports: [NaverCrawlerService, KakaoCrawlerService],
 })

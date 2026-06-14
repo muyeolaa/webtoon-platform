@@ -6,6 +6,8 @@ import { WebtoonService } from './webtoon.service';
 import { NaverEpisodeCrawlerService } from './naver-episode-crawler.service';
 import { WebtoonSchedulerService } from './webtoon-scheduler.service';
 import { KakaoEpisodeCrawlerService } from './kakao-episode-crawler.service';
+import { LezhinCrawlerService } from './lezhin-crawler.service';
+import { LezhinEpisodeCrawlerService } from './lezhin-episode-crawler.service';
 
 @Controller('webtoon') // 주소 앞에 /webtoon 이 붙습니다.
 export class WebtoonController {
@@ -16,6 +18,8 @@ export class WebtoonController {
     private readonly naverEpisodeCrawler: NaverEpisodeCrawlerService,
     private readonly webtoonSchedulerService: WebtoonSchedulerService,
     private readonly kakaoEpisodeCrawler: KakaoEpisodeCrawlerService,
+    private readonly lezhinService: LezhinCrawlerService,
+    private readonly lezhinEpisodeService: LezhinEpisodeCrawlerService,
   ) {}
 
   @Get('naver') // 접속 주소: GET /webtoon/naver
@@ -26,6 +30,10 @@ export class WebtoonController {
   @Get('kakao') // 접속 주소: GET /webtoon/kakao
   async getKakao() {
     return await this.kakaoService.getKakaoWebtoons();
+  }
+  @Get('lezhin')
+  async getLezhin() {
+    return await this.lezhinService.getLezhinWebtoons();
   }
 
   @Get('list')
@@ -183,6 +191,44 @@ export class WebtoonController {
       message: `🚀 카카오 웹툰 회차 수집이 ${startIndex}번째 웹툰부터 백그라운드에서 시작되었습니다!`,
       notice:
         '터미널 로그를 확인하세요. 중간에 멈추면 해당 번호를 기억했다가 ?start=번호 로 이어하기가 가능합니다.',
+    };
+  }
+
+  // =========================================================================
+  // 🚀 레진코믹스 수집 스위치 모음
+  // =========================================================================
+
+  // 1. 단일 웹툰 테스트 수집
+  @Get('seed-lezhin-episode/:alias')
+  async seedLezhinEpisode(@Param('alias') alias: string) {
+    return await this.lezhinEpisodeService.seedLezhinEpisodes(alias);
+  }
+
+  // 2. 전체 회차 싹쓸이 수집 (최초 1회용)
+  @Post('seed-lezhin-all-episodes')
+  async seedLezhinAllEpisodes() {
+    // 전체 수집은 오래 걸리므로 백그라운드로 실행 (await 제외)
+    this.lezhinEpisodeService.syncAllLezhinEpisodes();
+
+    return {
+      message:
+        '🚀 레진코믹스 전체 웹툰 상세/회차 수집이 백그라운드에서 시작되었습니다!',
+      notice:
+        '모든 데이터를 처음으로 채워 넣는 작업입니다. 터미널 로그를 확인해 주세요.',
+    };
+  }
+
+  // 3. 스마트 타겟팅 수집 (신작 및 오늘 연재작만 골라서)
+  @Post('sync-lezhin-smart-episodes')
+  async syncLezhinSmartEpisodes() {
+    // 이것도 백그라운드로 실행
+    this.lezhinEpisodeService.syncSmartLezhinEpisodes();
+
+    return {
+      message:
+        '🧠 레진코믹스 스마트 타겟팅 수집이 백그라운드에서 시작되었습니다!',
+      notice:
+        '신작(줄거리 누락)과 오늘자 웹툰만 가볍게 갱신합니다. 터미널 로그를 확인해 주세요.',
     };
   }
 }

@@ -71,6 +71,12 @@ export class Webtoon {
   @Column({ type: 'text', nullable: true })
   description!: string;
 
+  @Column({
+    nullable: true,
+    comment: '레진 등에서 사용하는 영문/문자열 고유 식별자',
+  })
+  alias?: string;
+
   // 🚀 2. 다대다(N:M) 관계의 하이라이트!
   @ManyToMany(() => Genre, (genre) => genre.webtoons, {
     cascade: true, // 💡 꿀팁: 웹툰을 저장할 때, 새로운 장르가 있으면 알아서 DB에 같이 저장(INSERT)해주는 마법의 옵션!
