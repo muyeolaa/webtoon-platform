@@ -79,6 +79,7 @@ export class NaverEpisodeCrawlerService {
           thumbnailUrl: article.thumbnailUrl,
           uploadDate: article.serviceDateDescription,
           webtoon: parentWebtoon,
+          url: `https://comic.naver.com/webtoon/detail?titleId=${article.titleId}&no=${article.no}`,
         }));
 
         await this.episodeRepository.upsert(episodesToSave, [

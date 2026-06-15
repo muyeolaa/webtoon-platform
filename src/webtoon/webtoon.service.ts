@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, ArrayContains, ILike } from 'typeorm';
 import { Webtoon } from './entities/webtoon.entity';
 import { Genre } from './entities/genre.entity';
+import { Episode } from './entities/episode.entity'; // 🚀 Episod
 
 // 1초, 2초 기다리게 만드는 커스텀 함수
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -15,6 +16,8 @@ export class WebtoonService {
   constructor(
     @InjectRepository(Webtoon)
     private readonly webtoonRepository: Repository<Webtoon>,
+    @InjectRepository(Episode)
+    private readonly episodeRepository: Repository<Episode>,
 
     @InjectRepository(Genre)
     private readonly genreRepository: Repository<Genre>,
@@ -170,5 +173,37 @@ export class WebtoonService {
     // 5. 최종 저장
     const updatedWebtoon = await this.webtoonRepository.save(webtoon);
     return updatedWebtoon;
+  }
+
+  // =========================================================================
+  // 🚀 [딥링크] 특정 회차의 실제 플랫폼 URL 가져오기  // 딥링크
+  // =========================================================================
+  async getEpisodeUrl(episodeId: any): Promise<string> {
+    // 💡 타입을 임시로 any로 변경!
+
+    console.log(
+      `[디버깅 1] 프론트에서 넘어온 ID:`,
+      episodeId,
+      `(타입: ${typeof episodeId})`,
+    );
+
+    const episode = await this.episodeRepository.findOne({
+      where: { id: episodeId },
+      select: ['id', 'url'], // id도 같이 꺼내와보자
+    });
+
+    console.log(`[디버깅 2] DB에서 찾은 결과:`, episode);
+
+    if (!episode) {
+      console.log(`[디버깅 3] 에러 원인: DB에서 해당 ID를 아예 못 찾음!`);
+      throw new NotFoundException('해당 회차의 링크 정보가 존재하지 않습니다.');
+    }
+
+    if (!episode.url) {
+      console.log(`[디버깅 3] 에러 원인: 데이터는 찾았는데 url 칸이 비어있음!`);
+      throw new NotFoundException('해당 회차의 링크 정보가 존재하지 않습니다.');
+    }
+
+    return episode.url;
   }
 }

@@ -1,5 +1,5 @@
 // src/webtoon/webtoon.controller.ts
-import { Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Controller, Get, Param, Post, Query, Res } from '@nestjs/common';
 import { NaverCrawlerService } from './naver-crawler.service';
 import { KakaoCrawlerService } from './kakao-crawler.service';
 import { WebtoonService } from './webtoon.service';
@@ -8,6 +8,7 @@ import { WebtoonSchedulerService } from './webtoon-scheduler.service';
 import { KakaoEpisodeCrawlerService } from './kakao-episode-crawler.service';
 import { LezhinCrawlerService } from './lezhin-crawler.service';
 import { LezhinEpisodeCrawlerService } from './lezhin-episode-crawler.service';
+import type { Response } from 'express';
 
 @Controller('webtoon') // 주소 앞에 /webtoon 이 붙습니다.
 export class WebtoonController {
@@ -119,6 +120,21 @@ export class WebtoonController {
   async seedKakaoEpisode(@Param('titleId') titleId: string) {
     // 결과를 포스트맨에서 바로 볼 수 있게 await를 걸어둡니다.
     return await this.kakaoEpisodeCrawler.seedKakaoEpisodes(titleId);
+  }
+
+  @Get('episode/:episodeId/read')
+  async readEpisode(
+    @Param('episodeId') episodeId: string,
+    @Res() res: Response, // 💡 리다이렉트를 위해 Express의 Response 객체를 가져옴
+  ) {
+    // 1. 서비스에서 해당 회차의 실제 플랫폼 URL 꺼내오기
+    const targetUrl = await this.webtoonService.getEpisodeUrl(episodeId);
+
+    // 💡 [확장 포인트] 나중에 여기에 유저 시청 기록(History) 저장 로직 추가!
+    // console.log(`[시청 기록 저장] 유저가 ${episodeId}번 회차를 읽기 시작했습니다.`);
+
+    // 2. 브라우저를 해당 플랫폼 회차 주소로 순간이동(Redirect) 🚀
+    return res.redirect(targetUrl);
   }
 
   @Get(':id')
