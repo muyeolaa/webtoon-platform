@@ -1,11 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
-import { WebtoonDto } from './dto/webtoon.dto';
+import { WebtoonDto } from '../dto/webtoon.dto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Webtoon } from './entities/webtoon.entity';
+import { Webtoon } from '../entities/webtoon.entity';
 import { Repository, IsNull } from 'typeorm';
-import { WebtoonService } from './webtoon.service';
+import { WebtoonService } from '../webtoon.service';
 
 @Injectable()
 export class NaverCrawlerService {

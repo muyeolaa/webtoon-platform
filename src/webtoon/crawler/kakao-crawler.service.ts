@@ -3,7 +3,7 @@ import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Webtoon } from './entities/webtoon.entity';
+import { Webtoon } from '../entities/webtoon.entity';
 
 @Injectable()
 @Injectable()

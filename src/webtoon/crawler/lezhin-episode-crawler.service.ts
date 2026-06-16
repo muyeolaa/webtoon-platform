@@ -3,9 +3,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, ArrayContains } from 'typeorm'; // 🚀 IsNull, ArrayContains 추가!
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
-import { Episode } from './entities/episode.entity';
-import { Webtoon } from './entities/webtoon.entity'; // 🚀 Webtoon 엔티티 추가!
-import { WebtoonService } from './webtoon.service';
+import { Episode } from '../entities/episode.entity';
+import { Webtoon } from '../entities/webtoon.entity'; // 🚀 Webtoon 엔티티 추가!
+import { WebtoonService } from '../webtoon.service';
 
 @Injectable()
 export class LezhinEpisodeCrawlerService {

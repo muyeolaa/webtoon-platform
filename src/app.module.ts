@@ -3,6 +3,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { WebtoonModule } from './webtoon/webtoon.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { UserModule } from './user/user.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -24,6 +26,8 @@ import { ScheduleModule } from '@nestjs/schedule';
 
     // 💡 수정 2: 웹툰 모듈을 드디어 본사 출근부에 정식 등록합니다!
     WebtoonModule,
+    UserModule,
+    AuthModule,
   ],
   controllers: [],
   providers: [],

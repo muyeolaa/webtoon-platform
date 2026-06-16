@@ -3,7 +3,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Webtoon } from './entities/webtoon.entity';
+import { Webtoon } from '../entities/webtoon.entity';
 import { NaverCrawlerService } from './naver-crawler.service';
 import { KakaoCrawlerService } from './kakao-crawler.service';
 import { NaverEpisodeCrawlerService } from './naver-episode-crawler.service';

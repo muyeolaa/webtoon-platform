@@ -1,13 +1,13 @@
 // src/webtoon/webtoon.controller.ts
 import { Controller, Get, Param, Post, Query, Res } from '@nestjs/common';
-import { NaverCrawlerService } from './naver-crawler.service';
-import { KakaoCrawlerService } from './kakao-crawler.service';
+import { NaverCrawlerService } from './crawler/naver-crawler.service';
+import { KakaoCrawlerService } from './crawler/kakao-crawler.service';
 import { WebtoonService } from './webtoon.service';
-import { NaverEpisodeCrawlerService } from './naver-episode-crawler.service';
-import { WebtoonSchedulerService } from './webtoon-scheduler.service';
-import { KakaoEpisodeCrawlerService } from './kakao-episode-crawler.service';
-import { LezhinCrawlerService } from './lezhin-crawler.service';
-import { LezhinEpisodeCrawlerService } from './lezhin-episode-crawler.service';
+import { NaverEpisodeCrawlerService } from './crawler/naver-episode-crawler.service';
+import { WebtoonSchedulerService } from './crawler/webtoon-scheduler.service';
+import { KakaoEpisodeCrawlerService } from './crawler/kakao-episode-crawler.service';
+import { LezhinCrawlerService } from './crawler/lezhin-crawler.service';
+import { LezhinEpisodeCrawlerService } from './crawler/lezhin-episode-crawler.service';
 import type { Response } from 'express';
 
 @Controller('webtoon') // 주소 앞에 /webtoon 이 붙습니다.

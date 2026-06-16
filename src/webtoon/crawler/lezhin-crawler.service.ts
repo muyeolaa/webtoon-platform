@@ -3,8 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
-import { Webtoon } from './entities/webtoon.entity';
-import { WebtoonService } from './webtoon.service';
+import { Webtoon } from '../entities/webtoon.entity';
+import { WebtoonService } from '../webtoon.service';
 
 @Injectable()
 export class LezhinCrawlerService {

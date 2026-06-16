@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like } from 'typeorm';
-import { Episode } from './entities/episode.entity';
-import { Webtoon } from './entities/webtoon.entity';
+import { Episode } from '../entities/episode.entity';
+import { Webtoon } from '../entities/webtoon.entity';
 
 // 1초 휴식용 수면제 함수
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));

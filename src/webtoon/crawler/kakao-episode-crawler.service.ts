@@ -3,9 +3,9 @@ import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ArrayContains, IsNull, Repository } from 'typeorm';
-import { Episode } from './entities/episode.entity';
-import { Webtoon } from './entities/webtoon.entity';
-import { WebtoonService } from './webtoon.service'; // 👈 import 추가
+import { Episode } from '../entities/episode.entity';
+import { Webtoon } from '../entities/webtoon.entity';
+import { WebtoonService } from '../webtoon.service'; // 👈 import 추가
 
 @Injectable()
 export class KakaoEpisodeCrawlerService {
