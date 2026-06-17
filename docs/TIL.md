@@ -23,6 +23,10 @@ git config --global core.autocrlf true 커밋할떄 LF 경고뜰떄 지우는 �
 
 =================================
 
+npx tree-node-cli -I "node_modules|dist|.git" -L 4 // 내 프로젝트 구조를 보여주는 단축키
+
+==================================
+
 - HTTP 메서드
   GET 데이터 조회, 상태를 변화시키진 못함 bady를 가지고 나갈순없음, prams를 달고나감
 

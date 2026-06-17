@@ -4,7 +4,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, ArrayContains, ILike } from 'typeorm';
 import { Webtoon } from './entities/webtoon.entity';
 import { Genre } from './entities/genre.entity';
-import { Episode } from './entities/episode.entity'; // 🚀 Episod
+import { Episode } from './entities/episode.entity';
+
+// 🚀 1. 방금 모듈에 등록하기로 한 북마크, 별점 엔티티 불러오기!
+import { Bookmark } from './entities/bookmark.entity';
+import { Rating } from './entities/rating.entity';
+import { ViewHistory } from './entities/view-history.entity';
 
 // 1초, 2초 기다리게 만드는 커스텀 함수
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -18,13 +23,41 @@ export class WebtoonService {
     private readonly webtoonRepository: Repository<Webtoon>,
     @InjectRepository(Episode)
     private readonly episodeRepository: Repository<Episode>,
-
     @InjectRepository(Genre)
     private readonly genreRepository: Repository<Genre>,
+    @InjectRepository(ViewHistory)
+    private readonly viewHistoryRepository: Repository<ViewHistory>,
+
+    // 🚀 2. 북마크와 별점 저장소(Repository)를 사용할 수 있게 주입!
+    @InjectRepository(Bookmark)
+    private readonly bookmarkRepository: Repository<Bookmark>,
+    @InjectRepository(Rating)
+    private readonly ratingRepository: Repository<Rating>,
   ) {}
 
   async findAllWebtoons() {
     return await this.webtoonRepository.find();
+  }
+
+  // =========================================================================
+  // 🚀 [신규 추가!] 내 활동 기록 (찜 여부, 내가 준 별점) 통합 조회
+  // =========================================================================
+  async getMyActivity(webtoonId: string, user: any) {
+    // 1. 이 유저가 이 웹툰을 찜했는지 찾기
+    const bookmark = await this.bookmarkRepository.findOne({
+      where: { user: { id: user.id }, webtoon: { id: webtoonId } },
+    });
+
+    // 2. 이 유저가 이 웹툰에 준 별점이 있는지 찾기
+    const rating = await this.ratingRepository.findOne({
+      where: { user: { id: user.id }, webtoon: { id: webtoonId } },
+    });
+
+    // 3. 찾은 결과를 프론트가 쓰기 좋게 예쁘게 포장해서 던져주기!
+    return {
+      isBookmarked: !!bookmark, // 데이터가 있으면 true, 없으면 false
+      myRating: rating ? rating.score : 0, // 데이터가 있으면 그 점수, 없으면 0점
+    };
   }
 
   // =========================================================================
@@ -125,9 +158,6 @@ export class WebtoonService {
     genreNames: string[],
     isAdult?: boolean,
   ) {
-    // 1. 업데이트할 웹툰 찾기
-    // 💡 핵심 방어막: 기존에 연결된 장르(relations: ['genres'])도 같이 가져와야
-    // TypeORM이 덮어쓰기 할 때 중간 테이블(webtoon_genres)이 꼬이지 않아요!
     const webtoon = await this.webtoonRepository.findOne({
       where: { id: webtoonId },
       relations: ['genres'],
@@ -138,16 +168,14 @@ export class WebtoonService {
       return;
     }
 
-    // 🚀 2. [수정된 핵심 로직] 공백 먼저 싹 자르고, 빈칸 버리고, 깨끗한 상태에서 중복 제거!
     const cleanedNames = genreNames
       .map((name) => name.trim())
-      .filter((name) => name !== ''); // 빈 문자열 제거
+      .filter((name) => name !== '');
 
-    const uniqueGenreNames = [...new Set(cleanedNames)]; // 중복 완벽 제거
+    const uniqueGenreNames = [...new Set(cleanedNames)];
 
     const genres: Genre[] = [];
 
-    // 3. 깨끗해진 해시태그 배열(uniqueGenreNames)을 하나씩 검사 및 생성
     for (const cleanName of uniqueGenreNames) {
       let genre = await this.genreRepository.findOne({
         where: { name: cleanName },
@@ -161,26 +189,21 @@ export class WebtoonService {
       genres.push(genre);
     }
 
-    // 4. 웹툰에 소개글과 완성된 장르 배열 장착!
     webtoon.description = description;
     webtoon.genres = genres;
 
-    // 상세 API에서 성인 여부가 넘어왔다면 DB 업데이트!
     if (isAdult !== undefined) {
       webtoon.isAdult = isAdult;
     }
 
-    // 5. 최종 저장
     const updatedWebtoon = await this.webtoonRepository.save(webtoon);
     return updatedWebtoon;
   }
 
   // =========================================================================
-  // 🚀 [딥링크] 특정 회차의 실제 플랫폼 URL 가져오기  // 딥링크
+  // 🚀 [딥링크] 특정 회차의 실제 플랫폼 URL 가져오기
   // =========================================================================
   async getEpisodeUrl(episodeId: any): Promise<string> {
-    // 💡 타입을 임시로 any로 변경!
-
     console.log(
       `[디버깅 1] 프론트에서 넘어온 ID:`,
       episodeId,
@@ -189,7 +212,7 @@ export class WebtoonService {
 
     const episode = await this.episodeRepository.findOne({
       where: { id: episodeId },
-      select: ['id', 'url'], // id도 같이 꺼내와보자
+      select: ['id', 'url'],
     });
 
     console.log(`[디버깅 2] DB에서 찾은 결과:`, episode);
@@ -205,5 +228,82 @@ export class WebtoonService {
     }
 
     return episode.url;
+  }
+
+  async getMyBookmarkedWebtoons(user: any) {
+    const bookmarks = await this.bookmarkRepository.find({
+      where: { user: { id: user.id } },
+      relations: ['webtoon'], // 💡 찜 기록뿐만 아니라 실제 웹툰 정보까지 같이 가져오기!
+      order: { createdAt: 'DESC' }, // 최근에 찜한 순서대로 정렬
+    });
+
+    // 프론트엔드에서 쓰기 편하도록 찜 기록 껍데기는 버리고 '웹툰 알맹이'만 쏙 빼서 배열로 리턴!
+    return bookmarks.map((b) => b.webtoon);
+  }
+
+  async getMyRatedWebtoons(user: any) {
+    const ratings = await this.ratingRepository.find({
+      where: { user: { id: user.id } },
+      relations: ['webtoon'],
+      order: { createdAt: 'DESC' }, // 최근에 별점을 준 순서대로
+    });
+
+    // 프론트엔드에서 쓰기 편하게 웹툰 데이터 안에 'myScore'라는 이름으로 내 점수를 끼워 넣어줍니다!
+    return ratings.map((r) => ({
+      ...r.webtoon,
+      myScore: r.score,
+    }));
+  }
+  // =========================================================================
+  // 🚀 [신규 추가] 최근 본 웹툰 기록 저장 (Upsert 방식)
+  // =========================================================================
+  async saveViewHistory(user: any, webtoonId: string) {
+    let history = await this.viewHistoryRepository.findOne({
+      where: { user: { id: user.id }, webtoon: { id: webtoonId } },
+    });
+
+    if (history) {
+      // 이미 본 적이 있으면, updatedAt 시간만 현재로 갱신! (맨 위로 끌어올리기)
+      history.updatedAt = new Date();
+      await this.viewHistoryRepository.save(history);
+    } else {
+      // 처음 보는 웹툰이면 새로 기록 생성!
+      history = this.viewHistoryRepository.create({
+        user: { id: user.id },
+        webtoon: { id: webtoonId },
+      });
+      await this.viewHistoryRepository.save(history);
+    }
+    return { success: true };
+  }
+
+  // =========================================================================
+  // 🚀 [신규 추가] 최근 본 웹툰 목록 조회
+  // =========================================================================
+  async getMyRecentWebtoons(user: any) {
+    const histories = await this.viewHistoryRepository.find({
+      where: { user: { id: user.id } },
+      relations: ['webtoon'],
+      order: { updatedAt: 'DESC' },
+      take: 100, // 💡 혹시 모를 중복을 대비해 넉넉하게 100개를 가져옵니다.
+    });
+
+    const uniqueWebtoons: Webtoon[] = [];
+    const seen = new Set(); // 🚀 이미 본 웹툰 ID를 기억하는 메모장 (중복 제거 핵심)
+
+    for (const h of histories) {
+      if (!h.webtoon) continue; // 웹툰 정보가 날아간 고아 데이터 방어
+
+      // 메모장에 없는 웹툰만 결과 배열에 쏙!
+      if (!seen.has(h.webtoon.id)) {
+        seen.add(h.webtoon.id);
+        uniqueWebtoons.push(h.webtoon);
+      }
+
+      // 50개가 꽉 차면 더 이상 안 찾아도 됨
+      if (uniqueWebtoons.length >= 50) break;
+    }
+
+    return uniqueWebtoons;
   }
 }

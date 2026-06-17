@@ -1,5 +1,14 @@
 // src/webtoon/webtoon.controller.ts
-import { Controller, Get, Param, Post, Query, Res } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { NaverCrawlerService } from './crawler/naver-crawler.service';
 import { KakaoCrawlerService } from './crawler/kakao-crawler.service';
 import { WebtoonService } from './webtoon.service';
@@ -9,6 +18,7 @@ import { KakaoEpisodeCrawlerService } from './crawler/kakao-episode-crawler.serv
 import { LezhinCrawlerService } from './crawler/lezhin-crawler.service';
 import { LezhinEpisodeCrawlerService } from './crawler/lezhin-episode-crawler.service';
 import type { Response } from 'express';
+import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 
 @Controller('webtoon') // 주소 앞에 /webtoon 이 붙습니다.
 export class WebtoonController {
@@ -76,6 +86,11 @@ export class WebtoonController {
     );
   }
 
+  // 1. 단일 웹툰 테스트 수집
+  @Get('seed-lezhin-episode/:alias')
+  async seedLezhinEpisode(@Param('alias') alias: string) {
+    return await this.lezhinEpisodeService.seedLezhinEpisodes(alias);
+  }
   //  전체 수집 스위치
   @Get('seed-naver-all')
   async seedAllNaverEpisodes(
@@ -135,6 +150,31 @@ export class WebtoonController {
 
     // 2. 브라우저를 해당 플랫폼 회차 주소로 순간이동(Redirect) 🚀
     return res.redirect(targetUrl);
+  }
+  @UseGuards(JwtAuthGuard)
+  @Get('my/bookmarks')
+  async getMyBookmarks(@Req() req: any) {
+    return this.webtoonService.getMyBookmarkedWebtoons(req.user);
+  }
+  @UseGuards(JwtAuthGuard)
+  @Get('my/ratings')
+  async getMyRatings(@Req() req: any) {
+    return this.webtoonService.getMyRatedWebtoons(req.user);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('my/recent')
+  async getMyRecentWebtoons(@Req() req: any) {
+    return this.webtoonService.getMyRecentWebtoons(req.user);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(':id/my-activity')
+  async getMyActivity(
+    @Param('id') webtoonId: string,
+    @Req() req: any, // JwtAuthGuard가 토큰을 까서 이 안에 user 정보를 넣어줍니다.
+  ) {
+    return this.webtoonService.getMyActivity(webtoonId, req.user);
   }
 
   @Get(':id')
@@ -214,12 +254,6 @@ export class WebtoonController {
   // 🚀 레진코믹스 수집 스위치 모음
   // =========================================================================
 
-  // 1. 단일 웹툰 테스트 수집
-  @Get('seed-lezhin-episode/:alias')
-  async seedLezhinEpisode(@Param('alias') alias: string) {
-    return await this.lezhinEpisodeService.seedLezhinEpisodes(alias);
-  }
-
   // 2. 전체 회차 싹쓸이 수집 (최초 1회용)
   @Post('seed-lezhin-all-episodes')
   async seedLezhinAllEpisodes() {
@@ -246,5 +280,10 @@ export class WebtoonController {
       notice:
         '신작(줄거리 누락)과 오늘자 웹툰만 가볍게 갱신합니다. 터미널 로그를 확인해 주세요.',
     };
+  }
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/view')
+  async recordViewHistory(@Param('id') webtoonId: string, @Req() req: any) {
+    return this.webtoonService.saveViewHistory(req.user, webtoonId);
   }
 }

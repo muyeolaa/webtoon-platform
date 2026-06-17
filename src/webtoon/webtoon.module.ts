@@ -19,11 +19,19 @@ import { BookmarkController } from './bookmark/bookmark.controller';
 import { RatingService } from './rating/rating.service';
 import { Bookmark } from './entities/bookmark.entity';
 import { Rating } from './entities/rating.entity';
+import { ViewHistory } from './entities/view-history.entity';
 
 @Module({
   imports: [
     HttpModule,
-    TypeOrmModule.forFeature([Webtoon, Episode, Genre, Bookmark, Rating]),
+    TypeOrmModule.forFeature([
+      Webtoon,
+      Episode,
+      Genre,
+      Bookmark,
+      Rating,
+      ViewHistory,
+    ]),
   ],
   controllers: [WebtoonController, RatingController, BookmarkController],
   providers: [

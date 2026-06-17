@@ -87,7 +87,13 @@ export class AuthService {
 
     return {
       message: '로그인 성공!',
-      accessToken: this.jwtService.sign(payload), // 🚀 도장 쾅 찍어서 프론트한테 발급!
+      accessToken: this.jwtService.sign(payload),
+      // 🚀 프론트엔드가 쓸 수 있게 유저 정보도 같이 던져주기!
+      user: {
+        id: user.id,
+        email: user.email,
+        nickname: user.nickname,
+      },
     };
   }
 }
