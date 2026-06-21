@@ -3,6 +3,7 @@ import {
   Entity,
   PrimaryColumn,
   Column,
+  CreateDateColumn, // 🚀 새로 추가! (생성일 자동 기록)
   UpdateDateColumn,
   OneToMany,
   ManyToMany,
@@ -37,6 +38,7 @@ export class Webtoon {
   @Column({ default: false })
   bm!: boolean;
 
+  // 💡 크롤링해온 원본 플랫폼(네이버/카카오)의 기존 별점
   @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
   starScore!: number;
 
@@ -51,19 +53,35 @@ export class Webtoon {
   @Column({ type: 'boolean', default: false })
   isAdult!: boolean;
 
-  // 🚀 1. 조회수 (아무도 안 봤으니 기본값 0)
+  // 1. 우리 통합 결제 플랫폼 자체 조회수 (아무도 안 봤으니 기본값 0)
   @Column({ default: 0 })
   viewCount?: number;
 
-  // 🚀 2. 별점 (아직 평가가 없으니 기본값 0, 소수점도 들어갈 수 있게 float 타입 사용)
+  // 2. 우리 통합 결제 플랫폼 자체 유저들의 평균 별점 (소수점 포함)
   @Column({ type: 'float', default: 0 })
   starRating?: number;
 
-  // 🚀 3. 업데이트 날짜
-  // TypeORM의 꿀기능! @UpdateDateColumn을 쓰면 데이터가 수정될 때마다
-  // 백엔드가 알아서 현재 시간으로 갱신해 줍니다.
+  // ==========================================
+  // ⏱️ 시간 관련 컬럼들 (정렬 & 관리용)
+  // ==========================================
+
+  // 3. 데이터 생성일 (DB 관리/복구용 생명줄)
+  // 크롤러가 DB에 처음 데이터를 넣은 시간이 자동으로 쾅 찍힘!
+  @CreateDateColumn()
+  createdAt!: Date;
+
+  //  4. 데이터 수정일 (단순 업데이트 추적용)
+  // TypeORM의 꿀기능! 데이터가 변경될 때마다 알아서 현재 시간으로 갱신.
   @UpdateDateColumn()
   updatedAt?: Date;
+
+  //  5. 진짜 '최신순' 정렬용 (최근 회차 업데이트일)
+  // 크롤링할 때 웹툰의 최신 회차가 올라온 날짜를 파싱해서 직접 넣어줄 공간!
+  // (과거 데이터는 비어있을 수 있으니 nullable: true)
+  @Column({ type: 'timestamp', nullable: true })
+  lastEpisodeUpdatedAt?: Date;
+
+  // ==========================================
 
   @OneToMany(() => Episode, (episode) => episode.webtoon)
   episodes?: Episode[];
@@ -77,13 +95,12 @@ export class Webtoon {
   })
   alias?: string;
 
-  // 🚀 2. 다대다(N:M) 관계의 하이라이트!
+  // 다대다(N:M) 관계의 하이라이트!
   @ManyToMany(() => Genre, (genre) => genre.webtoons, {
-    cascade: true, // 💡 꿀팁: 웹툰을 저장할 때, 새로운 장르가 있으면 알아서 DB에 같이 저장(INSERT)해주는 마법의 옵션!
+    cascade: true, // 💡 웹툰을 저장할 때, 새로운 장르가 있으면 알아서 DB에 같이 저장해주는 옵션!
   })
-  // 다대다 관계에서는 '중간 연결 테이블'이 필요한데, @JoinTable()을 달아주면 TypeORM이 알아서 만들어줍니다.
   @JoinTable({
-    name: 'webtoon_genres', // 알아서 만들어질 중간 테이블 이름
+    name: 'webtoon_genres',
     joinColumn: { name: 'webtoon_id', referencedColumnName: 'id' },
     inverseJoinColumn: { name: 'genre_id', referencedColumnName: 'id' },
   })

@@ -29,6 +29,9 @@ export class User {
   @Column({ nullable: true })
   providerId?: string;
 
+  @Column({ default: 'USER' })
+  role!: string;
+
   @CreateDateColumn()
   createdAt!: Date;
 }

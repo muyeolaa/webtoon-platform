@@ -2,10 +2,10 @@
 import { Module } from '@nestjs/common';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { UserModule } from '../user/user.module'; // 🚀 유저 모듈 수입!
+import { UserModule } from '../user/user.module';
 import { JwtModule } from '@nestjs/jwt';
-import { JwtStrategy } from './jwt.strategy'; // 🚀 추가
-import { PassportModule } from '@nestjs/passport'; // 🚀 추가
+import { JwtStrategy } from './jwt.strategy';
+import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
 @Module({

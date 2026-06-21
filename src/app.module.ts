@@ -5,6 +5,7 @@ import { WebtoonModule } from './webtoon/webtoon.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { UserModule } from './user/user.module';
 import { AuthModule } from './auth/auth.module';
+import { BoardModule } from './board/board.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { AuthModule } from './auth/auth.module';
     WebtoonModule,
     UserModule,
     AuthModule,
+    BoardModule,
   ],
   controllers: [],
   providers: [],

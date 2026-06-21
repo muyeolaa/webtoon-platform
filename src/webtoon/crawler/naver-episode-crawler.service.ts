@@ -184,10 +184,17 @@ export class NaverEpisodeCrawlerService {
     for (const webtoon of updatedWebtoons) {
       const numericTitleId = webtoon.id.replace('naver_', '');
       const isSuccess = await this.seedSingleWebtoonEpisodes(numericTitleId, 1);
-      if (isSuccess) successCount++;
+
+      if (isSuccess) {
+        successCount++;
+        // 🚀 핵심: 수집에 성공했으면 '최근 연재일'을 방금(현재 시간)으로 갱신!
+        await this.webtoonRepository.update(webtoon.id, {
+          lastEpisodeUpdatedAt: new Date(),
+        });
+      }
+
       await sleep(1000);
     }
-
     console.log(
       `🎉 업데이트 회차 1페이지 동기화 완료! (성공: ${successCount}/${updatedWebtoons.length})`,
     );

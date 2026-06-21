@@ -70,12 +70,22 @@ export class LezhinEpisodeCrawlerService {
         content.rating === 19 ||
         content.rating === '19';
 
+      let lastEpisodeUpdatedAt: Date | null = null;
+      if (episodes && episodes.length > 0) {
+        // 레진도 보통 첫 번째(index 0)가 가장 최신 회차야
+        const latestEp = episodes[0];
+        if (latestEp.publishedAt) {
+          lastEpisodeUpdatedAt = new Date(latestEp.publishedAt);
+        }
+      }
+
       // 합쳐진 해시태그 배열을 기존 업데이트 함수로 그대로 넘겨줌
       await this.webtoonService.updateWebtoonDetails(
         `lezhin_${content.id}`,
         description,
         combinedGenres,
-        isAdultCheck,
+        lastEpisodeUpdatedAt, // 👈 4번째 자리에 드디어 날짜(Date) 삽입!
+        isAdultCheck, // 👈 5번째 자리로 밀려난 성인 여부(boolean)!
       );
       this.logger.log(
         `📝 [레진코믹스 ${alias}] 상세 정보(줄거리/통합해시태그) 업데이트 완료!`,
@@ -216,11 +226,17 @@ export class LezhinEpisodeCrawlerService {
       if (!webtoon.alias) continue;
 
       const success = await this.seedLezhinEpisodes(webtoon.alias);
-      if (success) successCount++;
+
+      if (success) {
+        successCount++;
+        // 🚀 오늘 연재 요일이라 수집했으니 연재일 갱신!
+        await this.webtoonRepository.update(webtoon.id, {
+          lastEpisodeUpdatedAt: new Date(),
+        });
+      }
 
       await delay(1000);
     }
-
     this.logger.log(
       `🎉 [레진코믹스] 스마트 수집 완료! (성공: ${successCount} / 타겟: ${finalTargets.length})`,
     );

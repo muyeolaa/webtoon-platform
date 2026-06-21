@@ -135,32 +135,65 @@ export class NaverCrawlerService {
   // 🚀 신규 로직 1: 단일 웹툰 상세 정보(소개글, 장르) 수집 (JSON API 사용)
   // =========================================================================
   async crawlAndSaveDetails(titleId: string, webtoonId: string) {
-    const url = `https://comic.naver.com/api/article/list/info?titleId=${titleId}`;
+    const infoUrl = `https://comic.naver.com/api/article/list/info?titleId=${titleId}`;
+    // 💡 에피소드 목록(1페이지)을 가져오는 주소 추가!
+    const listUrl = `https://comic.naver.com/api/article/list?titleId=${titleId}&page=1`;
+
+    const headers = {
+      Referer: 'https://comic.naver.com/webtoon',
+      'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    };
 
     try {
-      const { data } = await firstValueFrom(
-        this.httpService.get(url, {
-          headers: {
-            Referer: 'https://comic.naver.com/webtoon',
-            'User-Agent':
-              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          },
-        }),
-      );
+      // 1. 소개글, 장르 정보 가져오기 & 에피소드 목록 가져오기를 동시에 실행! (속도 UP)
+      const [infoRes, listRes] = await Promise.all([
+        firstValueFrom(this.httpService.get(infoUrl, { headers })),
+        firstValueFrom(this.httpService.get(listUrl, { headers })).catch(
+          () => null,
+        ), // 에러 나도 안 멈추게 방어
+      ]);
 
-      const description = data.synopsis || '';
-      const genres = data.curationTagList
-        ? data.curationTagList.map((tag: any) => tag.tagName)
+      const infoData = infoRes.data;
+      const listData = listRes?.data;
+
+      const description = infoData.synopsis || '';
+      const genres = infoData.curationTagList
+        ? infoData.curationTagList.map((tag: any) => tag.tagName)
         : [];
 
+      // 🚀 2. 최신 회차 날짜 뽑아내기!
+      let lastEpisodeUpdatedAt: Date | null = null;
+
+      // 목록 데이터가 있고, 회차가 1개라도 존재한다면?
+      if (listData && listData.articleList && listData.articleList.length > 0) {
+        // 네이버 API는 articleList[0]이 가장 최신 회차야!
+        const latestArticle = listData.articleList[0];
+
+        // serviceDateDescription ("24.05.06") 또는 다른 날짜 데이터 파싱
+        // (Date로 변환하기 가장 안전한 값을 찾아 넣음)
+        const dateString =
+          latestArticle.serviceDateYmdt ||
+          latestArticle.regDate ||
+          latestArticle.serviceDateDescription;
+
+        if (dateString) {
+          // "24.05.06" 같은 형태가 오더라도 Date 객체가 알아먹을 수 있게 치환
+          const cleanDate = String(dateString).replace(/\./g, '-');
+          lastEpisodeUpdatedAt = new Date(cleanDate);
+        }
+      }
+
+      // 🚀 3. WebtoonService에 날짜까지 같이 던져주기!
       await this.webtoonService.updateWebtoonDetails(
         webtoonId,
         description,
         genres,
+        lastEpisodeUpdatedAt, // 👈 새로 추가된 파라미터!
       );
 
       this.logger.log(
-        `[${titleId}] 상세정보 수집 완료 (장르 ${genres.length}개)`,
+        `[${titleId}] 상세정보 수집 완료 (장르 ${genres.length}개 / 최신업데이트: ${lastEpisodeUpdatedAt ? lastEpisodeUpdatedAt.toLocaleDateString() : '알수없음'})`,
       );
       return true;
     } catch (error) {

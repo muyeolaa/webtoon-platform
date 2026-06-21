@@ -267,7 +267,14 @@ export class KakaoEpisodeCrawlerService {
 
       // 🚀 핵심: seedKakaoEpisodes에 '1'을 넘겨서 1페이지만 아주 가볍게 긁어옵니다.
       const success = await this.seedKakaoEpisodes(titleId, 1);
-      if (success) successCount++;
+
+      if (success) {
+        successCount++;
+        // 🚀 카카오도 'UP' 배지 값을 가져왔으니 연재일을 현재 시간으로 갱신!
+        await this.webtoonRepository.update(webtoon.id, {
+          lastEpisodeUpdatedAt: new Date(),
+        });
+      }
 
       await new Promise((res) => setTimeout(res, 1000));
     }
