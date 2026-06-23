@@ -81,6 +81,14 @@ export class Webtoon {
   @Column({ type: 'timestamp', nullable: true })
   lastEpisodeUpdatedAt?: Date;
 
+  // 🚀 6. 실시간인기순 정렬용 점수판 (매일 새벽 스케줄러가 계산해서 채워줌)
+  @Column({ type: 'float', default: 0 })
+  trendingScore!: number;
+
+  // 🚀 7. 북마크순 정렬용 카운트 (스케줄러가 진짜 북마크 테이블 개수를 세어서 채워줌)
+  @Column({ default: 0 })
+  bookmarkCount!: number;
+
   // ==========================================
 
   @OneToMany(() => Episode, (episode) => episode.webtoon)

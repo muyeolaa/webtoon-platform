@@ -8,9 +8,12 @@ import { NaverCrawlerService } from './naver-crawler.service';
 import { KakaoCrawlerService } from './kakao-crawler.service';
 import { NaverEpisodeCrawlerService } from './naver-episode-crawler.service';
 import { KakaoEpisodeCrawlerService } from './kakao-episode-crawler.service';
-// 🚀 1. 레진코믹스 수집기 임포트!
 import { LezhinCrawlerService } from './lezhin-crawler.service';
 import { LezhinEpisodeCrawlerService } from './lezhin-episode-crawler.service';
+
+// 🚀 1. 랭킹 정산을 위한 엔티티 추가 임포트!
+import { Bookmark } from '../entities/bookmark.entity';
+import { Rating } from '../entities/rating.entity';
 
 @Injectable()
 export class WebtoonSchedulerService {
@@ -19,11 +22,17 @@ export class WebtoonSchedulerService {
   constructor(
     @InjectRepository(Webtoon)
     private readonly webtoonRepository: Repository<Webtoon>,
+
+    // 🚀 2. 랭킹 정산용 레포지토리 주입 추가!
+    @InjectRepository(Bookmark)
+    private readonly bookmarkRepository: Repository<Bookmark>,
+    @InjectRepository(Rating)
+    private readonly ratingRepository: Repository<Rating>,
+
     private readonly naverCrawlerService: NaverCrawlerService,
     private readonly kakaoCrawlerService: KakaoCrawlerService,
     private readonly naverEpisodeCrawler: NaverEpisodeCrawlerService,
     private readonly kakaoEpisodeCrawler: KakaoEpisodeCrawlerService,
-    // 🚀 2. 레진코믹스 의존성 주입!
     private readonly lezhinCrawlerService: LezhinCrawlerService,
     private readonly lezhinEpisodeCrawlerService: LezhinEpisodeCrawlerService,
   ) {}
@@ -33,7 +42,7 @@ export class WebtoonSchedulerService {
    */
   @Cron('0 3 * * *', { timeZone: 'Asia/Seoul' })
   async handleDailyCrawling() {
-    this.logger.log('🚀 [Webtoon Auto Bot] 새벽 정기 크롤링을 시작합니다.');
+    this.logger.log('🚀 [Webtoon Auto Bot] 새벽 정기 배치 작업을 시작합니다.');
 
     try {
       this.logger.log('🧹 모든 웹툰의 업데이트(up) 상태를 초기화 중...');
@@ -44,13 +53,10 @@ export class WebtoonSchedulerService {
       // ====================================================================
       this.logger.log('▶️ [네이버 1/4] 연재 웹툰(정규+매일+) 동기화 중...');
       await this.naverCrawlerService.getNaverWebtoons();
-
       this.logger.log('▶️ [네이버 2/4] 신규 완결 웹툰 확인 중...');
       await this.naverCrawlerService.getFinishedNaverWebtoons(2);
-
       this.logger.log('▶️ [네이버 3/4] 신작 상세정보 동기화 중...');
       await this.naverCrawlerService.syncMissingDetails();
-
       this.logger.log('▶️ [네이버 4/4] 최신 회차 데이터 동기화 중...');
       await this.naverEpisodeCrawler.syncUpdatedEpisodes();
 
@@ -59,34 +65,102 @@ export class WebtoonSchedulerService {
       // ====================================================================
       this.logger.log('▶️ [카카오 1/3] 연재/완결 리스트 동기화 중...');
       await this.kakaoCrawlerService.getKakaoWebtoons();
-
-      this.logger.log(
-        '▶️ [카카오 2/3] 신작(상세설명 누락) 상세정보 및 회차 동기화 중...',
-      );
+      this.logger.log('▶️ [카카오 2/3] 신작 상세정보 및 회차 동기화 중...');
       await this.kakaoEpisodeCrawler.syncMissingDetails();
-
       this.logger.log('▶️ [카카오 3/3] 오늘 연재작 최신 회차 동기화 중...');
       await this.kakaoEpisodeCrawler.syncUpdatedEpisodes();
 
       // ====================================================================
-      // 🚀 3. 레진코믹스 웹툰 파이프라인 추가!
+      // 3. 레진코믹스 웹툰 파이프라인
       // ====================================================================
       this.logger.log('▶️ [레진 1/2] 전체 연재/완결 리스트 최신화 중...');
       await this.lezhinCrawlerService.getLezhinWebtoons();
-
-      this.logger.log(
-        '▶️ [레진 2/2] 스마트 상세/회차 동기화 중 (신작 & 오늘 연재작)...',
-      );
+      this.logger.log('▶️ [레진 2/2] 스마트 상세/회차 동기화 중...');
       await this.lezhinEpisodeCrawlerService.syncSmartLezhinEpisodes();
 
+      // ====================================================================
+      // 🚀 4. 최종 랭킹/별점 정산 파이프라인 (크롤링이 끝난 직후 실행!)
+      // ====================================================================
       this.logger.log(
-        '✅ [Webtoon Auto Bot] 오늘의 네이버, 카카오, 레진코믹스 데이터 동기화가 무사히 완료되었습니다!',
+        '▶️ [통합 랭킹 1/1] 전체 웹툰 별점/북마크/인기 점수 정산 중...',
+      );
+      await this.syncAllRankings();
+
+      this.logger.log(
+        '✅ [Webtoon Auto Bot] 오늘의 데이터 동기화 및 랭킹 정산이 무사히 완료되었습니다!',
       );
     } catch (error) {
       this.logger.error(
-        '❌ [Webtoon Auto Bot] 크롤링 도중 치명적인 에러 발생:',
+        '❌ [Webtoon Auto Bot] 배치 작업 도중 치명적인 에러 발생:',
         error,
       );
+    }
+  }
+
+  // ====================================================================
+  // 🚀 새로 추가된 랭킹 정산 전용 내부 함수
+  // ====================================================================
+  private async syncAllRankings() {
+    const webtoons = await this.webtoonRepository.find();
+    const now = new Date();
+
+    for (const webtoon of webtoons) {
+      try {
+        // 1. 진짜 북마크 수 계산
+        const realBookmarkCount = await this.bookmarkRepository.count({
+          where: { webtoon: { id: webtoon.id } },
+        });
+
+        // 2. 진짜 유저들의 별점 계산
+        const ratingResult = await this.ratingRepository
+          .createQueryBuilder('rating')
+          .select('SUM(rating.score)', 'sum')
+          .addSelect('COUNT(rating.id)', 'count')
+          .where('rating.webtoon_id = :webtoonId', { webtoonId: webtoon.id })
+          .getRawOne();
+
+        const realUserSum = Number(ratingResult.sum || 0);
+        const realUserCount = Number(ratingResult.count || 0);
+
+        // 3. 가상 유저 100명 공식 적용 (최종 평점)
+        const VIRTUAL_USER_COUNT = 100;
+        const virtualSum = Number(webtoon.starScore) * VIRTUAL_USER_COUNT;
+        const finalAverage =
+          (virtualSum + realUserSum) / (VIRTUAL_USER_COUNT + realUserCount);
+        const calculatedRating = Math.round(finalAverage * 100) / 100;
+
+        // 4. 최신성 가중치 보너스
+        // (방금 위에서 크롤러가 최신 날짜로 갱신해 줬기 때문에 정확도 100%!)
+        let recencyBonus = 0;
+        if (webtoon.lastEpisodeUpdatedAt) {
+          const diffTime = Math.abs(
+            now.getTime() - webtoon.lastEpisodeUpdatedAt.getTime(),
+          );
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          if (diffDays <= 3) {
+            recencyBonus = 500;
+          }
+        }
+
+        // 5. 트렌딩 점수 계산
+        const viewScore = (webtoon.viewCount || 0) * 1;
+        const bookmarkScore = realBookmarkCount * 10;
+        const ratingScore = calculatedRating * 50;
+        const totalTrendingScore =
+          viewScore + bookmarkScore + ratingScore + recencyBonus;
+
+        // 6. 한 번에 업데이트
+        await this.webtoonRepository.update(webtoon.id, {
+          bookmarkCount: realBookmarkCount,
+          starRating: calculatedRating,
+          trendingScore: totalTrendingScore,
+        });
+      } catch (error: any) {
+        this.logger.error(
+          `❌ [${webtoon.titleName}] 점수 정산 중 오류:`,
+          error.message,
+        );
+      }
     }
   }
 }

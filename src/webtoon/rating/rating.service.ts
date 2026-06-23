@@ -20,6 +20,7 @@ export class RatingService {
     const webtoon = await this.webtoonRepository.findOne({
       where: { id: webtoonId },
     });
+
     if (!webtoon) {
       throw new NotFoundException('존재하지 않는 웹툰입니다.');
     }
@@ -39,23 +40,11 @@ export class RatingService {
       await this.ratingRepository.save(rating);
     }
 
-    // 🚀 3. 핵심 로직: 이 웹툰의 '평균 별점' 다시 계산하기!
-    // TypeORM의 쿼리 빌더를 써서 DB한테 "이 웹툰의 score 평균(AVG) 좀 구해줘!" 라고 시킴
-    const { average } = await this.ratingRepository
-      .createQueryBuilder('rating')
-      .select('AVG(rating.score)', 'average')
-      .where('rating.webtoon_id = :webtoonId', { webtoonId })
-      .getRawOne();
-
-    // 🚀 4. 웹툰 테이블에 평균 점수 저장하기 (소수점 둘째 자리에서 반올림)
-    // DB에서 AVG를 구하면 가끔 문자열(String)로 넘어올 때가 있어서 Number로 감싸주는 게 안전해!
-    webtoon.starScore = Math.round(Number(average) * 100) / 100;
-    await this.webtoonRepository.save(webtoon);
-
+    // 🚀 실시간 계산 로직 통째로 제거!
+    // 이제 저장만 하고 가볍게 빛의 속도로 응답을 돌려줍니다.
     return {
       message: '별점이 반영되었습니다.',
       myScore: score,
-      webtoonAverage: webtoon.starScore, // 프론트엔드가 바로 화면에 업데이트할 수 있게 돌려줌
     };
   }
 }

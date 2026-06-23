@@ -107,12 +107,19 @@ export class WebtoonService {
     }
 
     let order: any = { id: 'ASC' };
+
     if (sort === '조회순') {
-      order = { viewCount: 'DESC' };
-    } else if (sort === '업데이트순') {
-      order = { updatedAt: 'DESC' };
+      order = { viewCount: 'DESC', id: 'DESC' };
+    } else if (sort === '업데이트순' || sort === '최신순') {  
+      order = { lastEpisodeUpdatedAt: 'DESC', id: 'DESC' };
     } else if (sort === '인기순') {
-      order = { starRating: 'DESC' };
+      order = { trendingScore: 'DESC', viewCount: 'DESC' };
+    } else if (sort === '북마크순') {
+      // 👈 이거 있는지 확인!
+      order = { bookmarkCount: 'DESC', trendingScore: 'DESC' };
+    } else if (sort === '별점순') {
+      // 👈 이거 있는지 확인!
+      order = { starRating: 'DESC', viewCount: 'DESC' };
     }
 
     const [webtoons, totalCount] = await this.webtoonRepository.findAndCount({
@@ -138,6 +145,7 @@ export class WebtoonService {
   // 🚀 단일 웹툰 상세 조회 (회차, 장르 포함)
   // =========================================================================
   async getWebtoonDetail(id: string) {
+    await this.webtoonRepository.increment({ id }, 'viewCount', 1);
     return await this.webtoonRepository.findOne({
       where: { id },
       relations: ['episodes', 'genres'],

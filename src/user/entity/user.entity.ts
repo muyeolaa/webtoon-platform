@@ -11,24 +11,25 @@ export class User {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column({ unique: true }) // 🚀 중복 가입 원천 차단!
+  // 🚀 카카오/네이버/구글에서 받아올 이메일
+  @Column({ unique: true })
   email!: string;
 
+  // 🚀 소셜에서 받아올 닉네임 (또는 임의 생성)
   @Column()
   nickname!: string;
 
-  // 소셜 로그인 유저는 비밀번호가 없으므로 nullable: true
-  @Column({ nullable: true })
-  password?: string;
+  // 🧹 1. 비밀번호 컬럼 영구 삭제! (더 이상 필요 없음)
 
-  // 'local' | 'kakao' | 'naver' 등 가입 출처
-  @Column({ default: 'local' })
-  provider!: string;
+  // 🧹 2. default: 'local' 삭제! 이제 무조건 소셜 이름이 들어가야 함
+  @Column()
+  provider!: string; // 예: 'kakao', 'naver', 'google'
 
-  // 소셜 로그인 시 발급받는 고유 ID
-  @Column({ nullable: true })
-  providerId?: string;
+  // 🧹 3. nullable: true 삭제! 소셜 로그인이면 무조건 고유 ID가 있어야 함
+  @Column()
+  providerId!: string;
 
+  // 👑 관리자 권한 등급
   @Column({ default: 'USER' })
   role!: string;
 

@@ -7,11 +7,13 @@ import { JwtModule } from '@nestjs/jwt';
 import { JwtStrategy } from './jwt.strategy';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { KakaoStrategy } from './strategies/kakao.strategy';
 
 @Module({
   imports: [
     UserModule,
     PassportModule,
+
     // 🚀 register -> registerAsync로 변경!
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -23,6 +25,6 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
     }),
   ],
   controllers: [AuthController], // 프론트엔드와 통신할 창구 등록
-  providers: [AuthService, JwtStrategy], // 비즈니스 로직 등록
+  providers: [AuthService, JwtStrategy, KakaoStrategy], // 비즈니스 로직 등록
 })
 export class AuthModule {}
