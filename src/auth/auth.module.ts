@@ -8,6 +8,8 @@ import { JwtStrategy } from './jwt.strategy';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { KakaoStrategy } from './strategies/kakao.strategy';
+import { NaverStrategy } from './strategies/naver.strategy';
+import { GoogleStrategy } from './strategies/google.strategy';
 
 @Module({
   imports: [
@@ -25,6 +27,12 @@ import { KakaoStrategy } from './strategies/kakao.strategy';
     }),
   ],
   controllers: [AuthController], // 프론트엔드와 통신할 창구 등록
-  providers: [AuthService, JwtStrategy, KakaoStrategy], // 비즈니스 로직 등록
+  providers: [
+    AuthService,
+    JwtStrategy,
+    KakaoStrategy,
+    NaverStrategy,
+    GoogleStrategy,
+  ],
 })
 export class AuthModule {}
