@@ -110,7 +110,7 @@ export class WebtoonService {
 
     if (sort === '조회순') {
       order = { viewCount: 'DESC', id: 'DESC' };
-    } else if (sort === '업데이트순' || sort === '최신순') {  
+    } else if (sort === '업데이트순' || sort === '최신순') {
       order = { lastEpisodeUpdatedAt: 'DESC', id: 'DESC' };
     } else if (sort === '인기순') {
       order = { trendingScore: 'DESC', viewCount: 'DESC' };
@@ -164,8 +164,7 @@ export class WebtoonService {
     webtoonId: string,
     description: string,
     genreNames: string[],
-    lastEpisodeUpdatedAt?: Date | null, // 🚀 4번째 자리에 '최신 연재일'을 받도록 추가!
-    isAdult?: boolean, // 💡 기존 4번째였던 '성인 여부'는 5번째로 자연스럽게 양보
+    isAdult?: boolean, //
   ) {
     const webtoon = await this.webtoonRepository.findOne({
       where: { id: webtoonId },
@@ -201,11 +200,6 @@ export class WebtoonService {
     // 1. 기본 정보 덮어씌우기
     webtoon.description = description;
     webtoon.genres = genres;
-
-    // 🚀 2. 크롤러가 날짜를 찾아왔다면 DB 엔티티에 쏙!
-    if (lastEpisodeUpdatedAt) {
-      webtoon.lastEpisodeUpdatedAt = lastEpisodeUpdatedAt;
-    }
 
     // 3. 성인 여부 덮어씌우기
     if (isAdult !== undefined) {

@@ -84,7 +84,6 @@ export class LezhinEpisodeCrawlerService {
         `lezhin_${content.id}`,
         description,
         combinedGenres,
-        lastEpisodeUpdatedAt, // 👈 4번째 자리에 드디어 날짜(Date) 삽입!
         isAdultCheck, // 👈 5번째 자리로 밀려난 성인 여부(boolean)!
       );
       this.logger.log(

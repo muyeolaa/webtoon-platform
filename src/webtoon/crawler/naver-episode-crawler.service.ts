@@ -79,7 +79,8 @@ export class NaverEpisodeCrawlerService {
           thumbnailUrl: article.thumbnailUrl,
           uploadDate: article.serviceDateDescription,
           webtoon: parentWebtoon,
-          url: `https://comic.naver.com/webtoon/detail?titleId=${article.titleId}&no=${article.no}`,
+          // 🚀 수정 포인트: article.titleId 대신 매개변수로 받은 확실한 titleId를 바인딩하여 undefined 버그 해결!
+          url: `https://comic.naver.com/webtoon/detail?titleId=${titleId}&no=${article.no}`,
         }));
 
         await this.episodeRepository.upsert(episodesToSave, [
