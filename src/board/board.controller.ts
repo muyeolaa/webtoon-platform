@@ -6,6 +6,8 @@ import {
   Param,
   Req,
   UseGuards,
+  Patch,
+  Delete,
 } from '@nestjs/common';
 import { BoardService } from './board.service';
 // 💡 경로 확인 필수!
@@ -56,5 +58,24 @@ export class BoardController {
   async getBugDetail(@Param('id') id: string, @Req() req: any) {
     // 토큰의 유저 정보(req.user)를 같이 넘겨서 내 글이 맞는지 검사함
     return this.boardService.getPostDetail(Number(id), req.user);
+  }
+  // ==========================================
+  // 🛠️ 게시글 수정 및 삭제
+  // ==========================================
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id')
+  async updatePost(
+    @Param('id') id: string,
+    @Req() req: any,
+    @Body('title') title: string,
+    @Body('content') content: string,
+  ) {
+    return this.boardService.updatePost(Number(id), req.user, title, content);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete(':id')
+  async deletePost(@Param('id') id: string, @Req() req: any) {
+    return this.boardService.deletePost(Number(id), req.user);
   }
 }

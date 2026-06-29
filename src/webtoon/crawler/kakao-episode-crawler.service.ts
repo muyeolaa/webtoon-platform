@@ -5,7 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { ArrayContains, IsNull, Repository } from 'typeorm';
 import { Episode } from '../entities/episode.entity';
 import { Webtoon } from '../entities/webtoon.entity';
-import { WebtoonService } from '../webtoon.service'; // 👈 import 추가
+import { WebtoonService } from '../webtoon.service'; //
 
 @Injectable()
 export class KakaoEpisodeCrawlerService {
@@ -17,7 +17,7 @@ export class KakaoEpisodeCrawlerService {
     private readonly episodeRepository: Repository<Episode>,
     @InjectRepository(Webtoon)
     private readonly webtoonRepository: Repository<Webtoon>,
-    private readonly webtoonService: WebtoonService, // 🚀 [NEW] 네이버처럼 서비스 주입!
+    private readonly webtoonService: WebtoonService,
   ) {}
 
   // =========================================================================
@@ -204,7 +204,7 @@ export class KakaoEpisodeCrawlerService {
   }
 
   // =========================================================================
-  // 🚀 [스케줄러용 1] 신작 추적: 상세설명이 없는(IsNull) 카카오 웹툰만 골라 수집
+  //  [스케줄러용 1] 신작 추적: 상세설명이 없는(IsNull) 카카오 웹툰만 골라 수집
   // =========================================================================
   async syncMissingDetails() {
     const targetWebtoons = await this.webtoonRepository.find({
@@ -236,7 +236,7 @@ export class KakaoEpisodeCrawlerService {
   }
 
   // =========================================================================
-  // 🚀 [수정됨] 스케줄러용 데일리 업데이트: 'UP' 상태인 카카오 웹툰 최신화(1페이지) 수집
+  //  [수정됨] 스케줄러용 데일리 업데이트: 'UP' 상태인 카카오 웹툰 최신화(1페이지) 수집
   // =========================================================================
   async syncUpdatedEpisodes() {
     this.logger.log(

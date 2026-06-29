@@ -32,16 +32,17 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   // 토큰 검증이 통과되면 이 validate 함수가 실행돼!
   async validate(payload: any) {
-    // payload.sub 안에는 우리가 아까 토큰을 구울 때 넣었던 user.id가 들어있어.
+    // 🚀 혹시 모를 상황을 대비해 role까지 명시적으로 가져오도록 수정
     const user = await this.userRepository.findOne({
       where: { id: payload.sub },
+      select: ['id', 'email', 'nickname', 'role'],
     });
 
     if (!user) {
       throw new UnauthorizedException('존재하지 않는 유저입니다.');
     }
 
-    // 여기서 리턴한 값은 앞으로 모든 API에서 `req.user`로 꺼내 쓸 수 있어! (개꿀기능)
+    // 여기서 리턴한 값은 앞으로 모든 API에서 `req.user`로 꺼내 쓸 수 있어!
     return user;
   }
 }

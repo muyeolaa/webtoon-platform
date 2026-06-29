@@ -40,8 +40,24 @@ export class RatingService {
       await this.ratingRepository.save(rating);
     }
 
-    // 🚀 실시간 계산 로직 통째로 제거!
-    // 이제 저장만 하고 가볍게 빛의 속도로 응답을 돌려줍니다.
+    // =========================================================
+    // 🚀 3. 실시간 평점 & 평가자 수 갱신 (베이지안 보정을 위한 필수 작업!)
+    // =========================================================
+    // Rating 테이블에서 이 웹툰의 '전체 평균(avg)'과 '총 평가자 수(count)'를 DB 단에서 아주 빠르게 계산해 옵니다.
+    const { avg, count } = await this.ratingRepository
+      .createQueryBuilder('rating')
+      .select('AVG(rating.score)', 'avg')
+      .addSelect('COUNT(rating.id)', 'count')
+      .where('rating.webtoon_id = :webtoonId', { webtoonId: webtoon.id })
+      .getRawOne();
+
+    // 계산된 값을 Webtoon 엔티티에 업데이트 (소수점 길어지는 것 방지)
+    webtoon.starRating = parseFloat(Number(avg || 0).toFixed(1));
+    webtoon.starRatingCount = parseInt(count || 0, 10);
+
+    await this.webtoonRepository.save(webtoon);
+    // =========================================================
+
     return {
       message: '별점이 반영되었습니다.',
       myScore: score,

@@ -11,7 +11,7 @@ import {
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { RatingService } from './rating.service';
 
-@Controller('webtoons')
+@Controller('webtoon')
 export class RatingController {
   constructor(private readonly ratingService: RatingService) {}
 

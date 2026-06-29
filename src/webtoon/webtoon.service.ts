@@ -145,8 +145,11 @@ export class WebtoonService {
   // 🚀 단일 웹툰 상세 조회 (회차, 장르 포함)
   // =========================================================================
   async getWebtoonDetail(id: string) {
+    // 1. 조회수 1 증가 (기존 로직 유지)
     await this.webtoonRepository.increment({ id }, 'viewCount', 1);
-    return await this.webtoonRepository.findOne({
+
+    // 2. 웹툰 상세 데이터 및 연관 데이터(에피소드, 장르) 조회
+    const webtoon = await this.webtoonRepository.findOne({
       where: { id },
       relations: ['episodes', 'genres'],
       order: {
@@ -155,6 +158,37 @@ export class WebtoonService {
         },
       },
     });
+
+    if (!webtoon) {
+      throw new NotFoundException('웹툰을 찾을 수 없습니다.');
+    }
+
+    // =========================================================
+    // 📊 3. 베이지안 보정 평점 계산 로직 적용 (가짜 유저 100명 기준)
+    // =========================================================
+    const virtualCount = 100;
+
+    // 외부 플랫폼 평점 총점 = 외부 평점(starScore) * 100명
+    const externalTotalScore = (webtoon.starScore || 0) * virtualCount;
+
+    // 우리 사이트 평점 총점 = 내부 평균(starRating) * 실제 평가자 수(starRatingCount)
+    const internalTotalScore =
+      (webtoon.starRating || 0) * (webtoon.starRatingCount || 0);
+
+    // 최종 보정 평점 계산 = (외부 총점 + 내부 총점) / (100 + 실제 평가자 수)
+    const totalCount = virtualCount + (webtoon.starRatingCount || 0);
+    const calculatedRating =
+      (externalTotalScore + internalTotalScore) / totalCount;
+    // =========================================================
+
+    // 4. 프론트엔드가 바로 쓸 수 있도록 계산된 값을 덮어씌워서 리턴
+    return {
+      ...webtoon,
+      // 🎯 소수점 첫째 자리까지만 예쁘게 반올림해서 기존 starScore를 대체
+      starScore: Number(calculatedRating.toFixed(1)),
+      // 화면에 '참여 100명 이상' 등으로 표기할 수 있게 총 평가자 수도 전달
+      totalRatingCount: totalCount,
+    };
   }
 
   // =========================================================================

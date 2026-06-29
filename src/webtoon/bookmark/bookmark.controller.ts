@@ -3,7 +3,7 @@ import { Controller, Post, Param, UseGuards, Req } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard'; // 🚀 우리가 만든 보안 요원
 import { BookmarkService } from './bookmark.service';
 
-@Controller('webtoons') // 기본 주소: /webtoons
+@Controller('webtoon') // 기본 주소: /webtoons
 export class BookmarkController {
   constructor(private readonly bookmarkService: BookmarkService) {}
 

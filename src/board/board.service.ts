@@ -1,5 +1,4 @@
 // src/board/board.service.ts
-
 import {
   Injectable,
   ForbiddenException,
@@ -23,7 +22,6 @@ export class BoardService {
     title: string,
     content: string,
   ) {
-    // 🚀 핵심: 카테고리가 BUG면 무조건 비밀글(isSecret: true)로 강제 잠금!
     const isSecret = category === 'BUG';
 
     const newPost = this.boardRepository.create({
@@ -40,21 +38,20 @@ export class BoardService {
   // 2. 게시글 목록 보기
   async getPosts(category: string, user?: any) {
     if (category === 'NOTICE') {
-      // 공지사항: 누구나 볼 수 있게 작성자 정보 포함해서 최신순 리턴
       return await this.boardRepository.find({
         where: { category: 'NOTICE' },
         order: { createdAt: 'DESC' },
         relations: ['author'],
         select: {
-          author: { id: true, nickname: true }, // 비밀번호 등 민감정보 보호
+          author: { id: true, nickname: true },
         },
       });
     }
 
     if (category === 'BUG') {
-      // 버그제보: 1:1 문의처럼 '내 글'만 모아서 리턴
+      // 🚀 이전 단계 수정 반영: 다른 사람의 버그 글도 리스트에는 보이도록 필터 제거
       return await this.boardRepository.find({
-        where: { category: 'BUG', author: { id: user.id } },
+        where: { category: 'BUG' },
         order: { createdAt: 'DESC' },
         relations: ['author'],
         select: {
@@ -76,11 +73,49 @@ export class BoardService {
 
     if (!post) throw new NotFoundException('게시글을 찾을 수 없습니다.');
 
-    // 🚀 비밀글 방어막: 게시물이 비밀글인데 내 글이 아니면 차단!
-    if (post.isSecret && (!user || user.id !== post.author.id)) {
+    // 🚀 수정: 비밀글인데 작성자도 아니고, 동시에 관리자(ADMIN)도 아니면 차단!
+    if (
+      post.isSecret &&
+      (!user || (user.id !== post.author.id && user.role !== 'ADMIN'))
+    ) {
       throw new ForbiddenException('비밀글은 작성자만 볼 수 있습니다.');
     }
 
     return post;
+  }
+  async updatePost(id: number, user: any, title: string, content: string) {
+    const post = await this.boardRepository.findOne({
+      where: { id },
+      relations: ['author'],
+    });
+
+    if (!post) throw new NotFoundException('게시글을 찾을 수 없습니다.');
+
+    // 🚀 수정은 무조건 작성자 본인만 가능! (관리자도 내용 수정은 불가)
+    if (post.author.id !== user.id) {
+      throw new ForbiddenException('게시글 수정 권한이 없습니다.');
+    }
+
+    post.title = title;
+    post.content = content;
+    return await this.boardRepository.save(post);
+  }
+
+  // 5. 게시글 삭제 (작성자 OR 관리자)
+  async deletePost(id: number, user: any) {
+    const post = await this.boardRepository.findOne({
+      where: { id },
+      relations: ['author'],
+    });
+
+    if (!post) throw new NotFoundException('게시글을 찾을 수 없습니다.');
+
+    // 🚀 삭제 권한 체크: 작성자 본인도 아니고, 관리자도 아니면 차단!
+    if (post.author.id !== user.id && user.role !== 'ADMIN') {
+      throw new ForbiddenException('게시글 삭제 권한이 없습니다.');
+    }
+
+    await this.boardRepository.remove(post);
+    return { message: '게시글이 성공적으로 삭제되었습니다.' };
   }
 }

@@ -40,11 +40,11 @@ export class AuthService {
     }
 
     // 3. 기존 회원이든 신규 회원이든 여기까지 왔으면 무조건 로그인 성공!
-    // (여기서 payload에 담기는 nickname은 이제 방금 생성된 '유저_XXXXXX' 또는 기존에 쓰던 닉네임이 됨)
     const payload = {
       email: user.email,
       sub: user.id,
       nickname: user.nickname,
+      role: user.role, // 🚀 추가완료! 이제 토큰을 까보면 권한이 정확하게 들어있음!
     };
     const accessToken = this.jwtService.sign(payload);
 

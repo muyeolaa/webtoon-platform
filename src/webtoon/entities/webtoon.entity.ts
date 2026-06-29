@@ -61,6 +61,10 @@ export class Webtoon {
   @Column({ type: 'float', default: 0 })
   starRating?: number;
 
+  // 🚀 새로 추가: 우리 사이트에서 별점을 준 진짜 유저 수!
+  @Column({ default: 0 })
+  starRatingCount!: number;
+
   // ==========================================
   // ⏱️ 시간 관련 컬럼들 (정렬 & 관리용)
   // ==========================================
