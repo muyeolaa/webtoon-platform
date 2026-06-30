@@ -99,9 +99,11 @@ export class KakaoCrawlerService {
 
           // ✂️ 3. 데이터 정제
           const finalWebtoons = rawWebtoons.map((item: any) => {
+            // 🚀 카카오페이지의 새로운 asset_property 구조에 맞춰서 경로 수정!
             const imagePath =
-              item.asset_property?.banner_img ||
-              item.asset_property?.card_img ||
+              item.asset_property?.banner_set?.main_img ||
+              item.asset_property?.banner_set?.background_img ||
+              item.asset_property?.card_set?.background_img ||
               '';
             const fullThumbnailUrl = `https://dn-img-page.kakao.com/download/resource?kid=${imagePath}&filename=th3`;
 

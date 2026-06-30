@@ -249,12 +249,13 @@ export class KakaoEpisodeCrawlerService {
         platform: 'kakao',
         up: true,
       },
-      select: ['id'],
+      select: ['id'], // ID만 가져와서 메모리 절약!
     });
 
     if (upWebtoons.length === 0) {
-      this.logger.log('💤 업데이트된 카카오 웹툰이 없습니다. 휴식합니다.');
-      return;
+      this.logger.log('💤 오늘 업데이트된 카카오 웹툰이 없습니다. 휴식합니다.');
+      // 🚀 네이버처럼 리턴 객체 통일
+      return { message: '오늘 업데이트된 웹툰이 없습니다.' };
     }
 
     this.logger.log(
@@ -270,17 +271,25 @@ export class KakaoEpisodeCrawlerService {
 
       if (success) {
         successCount++;
-        // 🚀 카카오도 'UP' 배지 값을 가져왔으니 연재일을 현재 시간으로 갱신!
+        // 🚀 카카오도 'UP' 배지 값을 가져왔으니 연재일을 현재 시간으로 갱신! (최신순 정렬의 핵심)
         await this.webtoonRepository.update(webtoon.id, {
           lastEpisodeUpdatedAt: new Date(),
         });
       }
 
+      // 카카오 서버 차단(Rate Limit) 방지용 1초 휴식
       await new Promise((res) => setTimeout(res, 1000));
     }
 
     this.logger.log(
       `✅ 카카오 일일 업데이트 수집 완료! (성공: ${successCount}/${upWebtoons.length})`,
     );
+
+    // 🚀 네이버 코드와 완벽하게 일치하는 리턴값 추가!
+    return {
+      message: '카카오 업데이트 회차 동기화 완료',
+      targetCount: upWebtoons.length,
+      successCount,
+    };
   }
 }

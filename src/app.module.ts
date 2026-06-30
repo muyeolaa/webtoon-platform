@@ -7,6 +7,10 @@ import { UserModule } from './user/user.module';
 import { AuthModule } from './auth/auth.module';
 import { BoardModule } from './board/board.module';
 
+// 🚀 1. 방어막(Throttler) 관련 모듈 임포트
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -25,6 +29,14 @@ import { BoardModule } from './board/board.module';
     }),
     ScheduleModule.forRoot(),
 
+    // 🛡️ 2. 매크로/DoS 공격 방어막 세팅 (같은 IP에서 1분(60000ms) 동안 최대 100번 요청 허용)
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000,
+        limit: 100,
+      },
+    ]),
+
     // 💡 수정 2: 웹툰 모듈을 드디어 본사 출근부에 정식 등록합니다!
     WebtoonModule,
     UserModule,
@@ -32,6 +44,12 @@ import { BoardModule } from './board/board.module';
     BoardModule,
   ],
   controllers: [],
-  providers: [],
+  providers: [
+    // 🛡️ 3. ThrottlerGuard를 애플리케이션 전체(모든 컨트롤러와 API)에 적용!
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}

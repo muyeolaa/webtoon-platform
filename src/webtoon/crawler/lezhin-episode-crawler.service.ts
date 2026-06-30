@@ -228,10 +228,14 @@ export class LezhinEpisodeCrawlerService {
 
       if (success) {
         successCount++;
-        // 🚀 오늘 연재 요일이라 수집했으니 연재일 갱신!
-        await this.webtoonRepository.update(webtoon.id, {
-          lastEpisodeUpdatedAt: new Date(),
-        });
+
+        // 🚨 [핵심 방어막] 타겟 A(단순 정보 보강)로 불려온 옛날 완결작이 '최신'으로 둔갑하는 것을 방지!
+        // 이 웹툰의 연재 요일에 '오늘(todayEnglish)'이 포함되어 있을 때만 연재일을 갱신합니다.
+        if (webtoon.publishDays?.includes(todayEnglish)) {
+          await this.webtoonRepository.update(webtoon.id, {
+            lastEpisodeUpdatedAt: new Date(),
+          });
+        }
       }
 
       await delay(1000);

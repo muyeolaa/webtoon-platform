@@ -70,13 +70,20 @@ export class WebtoonService {
     day?: string,
     sort?: string,
     search?: string,
+    isAdult?: string, // 🚀 1. 프론트에서 넘어올 파라미터 추가 ('false' 문자열로 들어옴)
   ) {
     const skip = (page - 1) * limit;
 
-    // 🚀 1. QueryBuilder 시작!
+    // 🚀 QueryBuilder 시작!
     const qb = this.webtoonRepository.createQueryBuilder('webtoon');
 
-    // 2. 플랫폼 필터링
+    // 🚨 2. [핵심] 성인 웹툰 필터링: DB에서 가져오기 전부터 아예 제외시켜버림!
+    // 프론트엔드에서 비로그인 상태일 때 '&isAdult=false'를 보내면 작동합니다.
+    if (isAdult === 'false') {
+      qb.andWhere('webtoon.isAdult = :isAdultFlag', { isAdultFlag: false });
+    }
+
+    // 3. 플랫폼 필터링
     if (platform && platform !== '전체' && platform !== 'all') {
       const p =
         platform === '네이버' || platform === 'naver'
@@ -87,7 +94,7 @@ export class WebtoonService {
       qb.andWhere('webtoon.platform = :platform', { platform: p });
     }
 
-    // 3. 검색어 또는 요일 필터링
+    // 4. 검색어 또는 요일 필터링
     if (search) {
       qb.andWhere('webtoon.titleName ILIKE :search', { search: `%${search}%` });
     } else if (day) {
@@ -103,12 +110,11 @@ export class WebtoonService {
       };
       const englishDay = dayTranslator[day];
       if (englishDay) {
-        // 기존 ArrayContains 대신 QueryBuilder용 배열 검색 문법 (PostgreSQL)
         qb.andWhere(':day = ANY(webtoon.publishDays)', { day: englishDay });
       }
     }
 
-    // 🚀 4. 다이나믹 정렬 적용
+    // 5. 다이나믹 정렬 적용
     if (sort === '조회순') {
       qb.orderBy('webtoon.viewCount', 'DESC').addOrderBy('webtoon.id', 'DESC');
     } else if (sort === '업데이트순' || sort === '최신순') {
@@ -127,31 +133,27 @@ export class WebtoonService {
         'DESC',
       );
     } else if (sort === '별점순') {
-      // 🚀 수정: webtoon.starScore가 0이면 9.0으로 치환해서 계산하도록 SQL 수정
       qb.orderBy(
         '((COALESCE(NULLIF(webtoon.starScore, 0), 9.0) * 100) + (webtoon.starRating * webtoon.starRatingCount)) / (100 + webtoon.starRatingCount)',
         'DESC',
       ).addOrderBy('webtoon.viewCount', 'DESC');
     } else {
-      // 기본 정렬
       qb.orderBy('webtoon.id', 'ASC');
     }
 
-    // 5. DB에서 데이터와 총 개수 가져오기
+    // 6. DB에서 데이터와 총 개수 가져오기 (이미 필터링된 상태에서 limit 개수만큼 꽉 채워서 가져옴!)
     const [webtoons, totalCount] = await qb
       .skip(skip)
       .take(limit)
       .getManyAndCount();
 
-    // 🚀 6. 프론트엔드 목록 화면(카드)에서도 예쁜 점수가 나오도록 가공해서 리턴
+    // 7. 프론트엔드 목록 화면(카드)에서도 예쁜 점수가 나오도록 가공해서 리턴
     const processedWebtoons = webtoons.map((webtoon) => {
       const virtualCount = 100;
 
-      // 🚀 방어 로직 추가: 리스트 화면에서도 0점(또는 null)이면 9.0으로 치환!
       const validStarScore =
         webtoon.starScore && webtoon.starScore > 0 ? webtoon.starScore : 9.5;
 
-      // 0 대신 validStarScore(9.0)를 곱해줍니다.
       const externalTotalScore = validStarScore * virtualCount;
       const internalTotalScore =
         (webtoon.starRating || 0) * (webtoon.starRatingCount || 0);
@@ -167,7 +169,7 @@ export class WebtoonService {
     });
 
     return {
-      data: processedWebtoons, // 원본 webtoons 대신 가공된 데이터를 전달!
+      data: processedWebtoons,
       meta: {
         totalItems: totalCount,
         itemCount: processedWebtoons.length,
