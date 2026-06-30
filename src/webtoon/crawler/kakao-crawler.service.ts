@@ -101,11 +101,16 @@ export class KakaoCrawlerService {
           const finalWebtoons = rawWebtoons.map((item: any) => {
             // 🚀 카카오페이지의 새로운 asset_property 구조에 맞춰서 경로 수정!
             const imagePath =
-              item.asset_property?.banner_set?.main_img ||
-              item.asset_property?.banner_set?.background_img ||
-              item.asset_property?.card_set?.background_img ||
+              item.asset_property?.banner_img || // 1순위: 구형 메인 썸네일 (👈 '괴담 동아리'가 여기서 걸림!)
+              item.asset_property?.banner_set?.main_img || // 2순위: 신형 메인 썸네일
+              item.asset_property?.card_set?.background_img || // 3순위: 신형 서브 썸네일
+              item.asset_property?.card_img || // 4순위: 구형 서브 썸네일
+              item.asset_property?.banner_set?.background_img || // 5순위: 신형 배경 썸네일
               '';
-            const fullThumbnailUrl = `https://dn-img-page.kakao.com/download/resource?kid=${imagePath}&filename=th3`;
+
+            const fullThumbnailUrl = imagePath
+              ? `https://dn-img-page.kakao.com/download/resource?kid=${imagePath}&filename=th3`
+              : ''; // 만약 끝까지 못 찾으면 아예 빈 문자열 처리
 
             // DB에 넣을 데이터 조립
             return {

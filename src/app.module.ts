@@ -15,6 +15,7 @@ import { APP_GUARD } from '@nestjs/core';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: ['.env.local', '.env'],
     }),
     TypeOrmModule.forRoot({
       type: 'postgres',
@@ -25,7 +26,7 @@ import { APP_GUARD } from '@nestjs/core';
       database: process.env.DB_DATABASE,
       // 💡 수정 1: Entity는 엔티티 파일을 넣거나, 아래처럼 자동 검색하게 만듭니다.
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      synchronize: true,
+      synchronize: process.env.NODE_ENV !== 'production',
     }),
     ScheduleModule.forRoot(),
 
