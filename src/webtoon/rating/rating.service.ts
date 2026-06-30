@@ -16,7 +16,6 @@ export class RatingService {
   ) {}
 
   async rateWebtoon(user: User, webtoonId: string, score: number) {
-    // 1. 웹툰이 진짜 있는지 확인
     const webtoon = await this.webtoonRepository.findOne({
       where: { id: webtoonId },
     });
@@ -25,25 +24,35 @@ export class RatingService {
       throw new NotFoundException('존재하지 않는 웹툰입니다.');
     }
 
-    // 2. 이 유저가 이미 별점을 준 적 있는지 확인
-    let rating = await this.ratingRepository.findOne({
+    const rating = await this.ratingRepository.findOne({
       where: { user: { id: user.id }, webtoon: { id: webtoonId } },
     });
 
-    if (rating) {
-      // 이미 줬다면 새로운 점수로 덮어쓰기 (수정)
-      rating.score = score;
-      await this.ratingRepository.save(rating);
+    // =========================================================
+    // 🚀 1. 토글형 취소 로직 적용: 0점이 들어오면 삭제!
+    // =========================================================
+    if (score === 0) {
+      if (rating) {
+        await this.ratingRepository.remove(rating); // DB에서 아예 기록 삭제
+      }
     } else {
-      // 처음 주는 거라면 새로 생성
-      rating = this.ratingRepository.create({ user, webtoon, score });
-      await this.ratingRepository.save(rating);
+      // 0점이 아니면 기존처럼 수정하거나 새로 생성
+      if (rating) {
+        rating.score = score;
+        await this.ratingRepository.save(rating);
+      } else {
+        const newRating = this.ratingRepository.create({
+          user,
+          webtoon,
+          score,
+        });
+        await this.ratingRepository.save(newRating);
+      }
     }
 
     // =========================================================
-    // 🚀 3. 실시간 평점 & 평가자 수 갱신 (베이지안 보정을 위한 필수 작업!)
+    // 🚀 2. 실시간 평점 & 평가자 수 갱신 (취소되었으니 다시 계산)
     // =========================================================
-    // Rating 테이블에서 이 웹툰의 '전체 평균(avg)'과 '총 평가자 수(count)'를 DB 단에서 아주 빠르게 계산해 옵니다.
     const { avg, count } = await this.ratingRepository
       .createQueryBuilder('rating')
       .select('AVG(rating.score)', 'avg')
@@ -51,7 +60,7 @@ export class RatingService {
       .where('rating.webtoon_id = :webtoonId', { webtoonId: webtoon.id })
       .getRawOne();
 
-    // 계산된 값을 Webtoon 엔티티에 업데이트 (소수점 길어지는 것 방지)
+    // 💡 모두가 취소해서 count가 0이 되면 avg는 null이 되므로 0으로 안전하게 치환
     webtoon.starRating = parseFloat(Number(avg || 0).toFixed(1));
     webtoon.starRatingCount = parseInt(count || 0, 10);
 
@@ -59,8 +68,9 @@ export class RatingService {
     // =========================================================
 
     return {
-      message: '별점이 반영되었습니다.',
-      myScore: score,
+      message:
+        score === 0 ? '별점이 취소되었습니다.' : '별점이 반영되었습니다.',
+      myScore: score, // 프론트엔드 상태 업데이트를 위해 그대로 돌려줌
     };
   }
 }

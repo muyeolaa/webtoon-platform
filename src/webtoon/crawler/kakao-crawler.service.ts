@@ -115,9 +115,12 @@ export class KakaoCrawlerService {
               up: false,
               rest: item.state === 'ST62',
               bm: item.is_waitfree || item.business_model !== 'F',
-              publishDays: parsePublishDays(item.pub_period),
+
+              // 🚀 수정 포인트: 현재 순회 중인 탭이 12(완결)라면 무조건 ['FINISHED']를 부여하고, 아니라면 기존 요일 파싱 진행!
+              publishDays:
+                tabId === 12 ? ['FINISHED'] : parsePublishDays(item.pub_period),
+
               isAdult: item.age_grade === 19,
-              // ❌ hashtags: extractedHashtags, <-- 이 줄은 삭제!
               starScore: 0,
               platform: 'kakao',
             };

@@ -54,42 +54,73 @@ export class NaverEpisodeCrawlerService {
         const url = `https://comic.naver.com/api/article/list?titleId=${titleId}&page=${currentPage}`;
 
         const response = await fetch(url, { headers });
-        const text = await response.text(); // 🚀 바로 JSON으로 바꾸지 않고 텍스트로 먼저 받습니다.
+        const text = await response.text();
 
         let data;
         try {
-          data = JSON.parse(text); // 🚀 19금에 막혀 HTML이 오면 여기서 에러가 발생합니다.
+          data = JSON.parse(text);
         } catch (parseError) {
+          // 🚀 [용의자 2 검거] HTML로 튕겨버린 경우 (시리즈 이관 or 추가 동의 창)
           console.error(
-            `🚨 [19금 장벽 감지] ${titleId} 웹툰 수집 실패! .env 쿠키가 없거나 만료되었습니다.`,
+            `🚨 [HTML 리다이렉트 감지] ${titleId} 웹툰! JSON이 아닙니다.`,
           );
-          return false; // 서버 터지지 않게 부드럽게 종료
+          console.log(`📄 HTML 미리보기:`, text.substring(0, 300)); // 범인의 정체를 300자만 엿봅니다.
+          return false;
+        }
+
+        // 🚀 [용의자 1 검거] JSON은 왔는데, 배열 이름이 다른 경우 키 목록 확인!
+        const keys = Object.keys(data);
+        if (
+          !keys.includes('articleList') &&
+          !keys.includes('chargeFolderArticleList')
+        ) {
+          console.log(
+            `🔍 [숨겨진 보따리 발견?!] ${titleId}의 JSON 구조:`,
+            keys,
+          );
         }
 
         totalPages = Math.min(data.pageInfo?.totalPages || 1, maxPage);
 
+        // 💡 혹시 모를 완결/매일+ 전용 배열 이름들까지 싹 다 그물망에 추가!
         const freeArticles = data.articleList || [];
         const chargeArticles = data.chargeFolderArticleList || [];
-        const allArticles = [...freeArticles, ...chargeArticles];
+        const dailyPassArticles = data.dailyPassArticleList || [];
+        const storeArticles = data.storeArticleList || [];
 
-        const episodesToSave = allArticles.map((article) => ({
-          titleId: titleId,
-          episodeNo: article.no,
-          title: article.subtitle,
-          thumbnailUrl: article.thumbnailUrl,
-          uploadDate: article.serviceDateDescription,
-          webtoon: parentWebtoon,
-          // 🚀 수정 포인트: article.titleId 대신 매개변수로 받은 확실한 titleId를 바인딩하여 undefined 버그 해결!
-          url: `https://comic.naver.com/webtoon/detail?titleId=${titleId}&no=${article.no}`,
-        }));
+        const allArticles = [
+          ...freeArticles,
+          ...chargeArticles,
+          ...dailyPassArticles,
+          ...storeArticles,
+        ];
 
-        await this.episodeRepository.upsert(episodesToSave, [
-          'titleId',
-          'episodeNo',
-        ]);
+        // 🚀 만약 이렇게까지 했는데도 0개라면?! 진짜 데이터 구조를 파헤쳐보기
+        if (allArticles.length === 0) {
+          console.log(
+            `⚠️ [비상] ${titleId} 회차가 0개입니다! 원본 데이터:`,
+            JSON.stringify(data).substring(0, 300),
+          );
+        } else {
+          // 정상적으로 데이터가 모였다면 기존 로직대로 저장!
+          const episodesToSave = allArticles.map((article) => ({
+            titleId: titleId,
+            episodeNo: article.no,
+            title: article.subtitle,
+            thumbnailUrl: article.thumbnailUrl,
+            uploadDate: article.serviceDateDescription,
+            webtoon: parentWebtoon,
+            url: `https://comic.naver.com/webtoon/detail?titleId=${titleId}&no=${article.no}`,
+          }));
+
+          await this.episodeRepository.upsert(episodesToSave, [
+            'titleId',
+            'episodeNo',
+          ]);
+        }
 
         console.log(
-          `✅ [네이버 ${titleId}] ${currentPage}/${totalPages} 페이지 저장 완료!`,
+          `✅ [네이버 ${titleId}] ${currentPage}/${totalPages} 페이지 분석 완료!`,
         );
 
         currentPage++;

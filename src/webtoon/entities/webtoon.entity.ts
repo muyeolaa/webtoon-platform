@@ -8,6 +8,7 @@ import {
   OneToMany,
   ManyToMany,
   JoinTable,
+  Index,
 } from 'typeorm';
 import { Episode } from './episode.entity';
 import { Genre } from './genre.entity';
@@ -54,6 +55,7 @@ export class Webtoon {
   isAdult!: boolean;
 
   // 1. 우리 통합 결제 플랫폼 자체 조회수 (아무도 안 봤으니 기본값 0)
+  @Index()
   @Column({ default: 0 })
   viewCount?: number;
 
@@ -86,6 +88,7 @@ export class Webtoon {
   lastEpisodeUpdatedAt?: Date;
 
   // 🚀 6. 실시간인기순 정렬용 점수판 (매일 새벽 스케줄러가 계산해서 채워줌)
+  @Index()
   @Column({ type: 'float', default: 0 })
   trendingScore!: number;
 

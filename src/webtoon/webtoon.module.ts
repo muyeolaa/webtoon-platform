@@ -20,6 +20,7 @@ import { RatingService } from './rating/rating.service';
 import { Bookmark } from './entities/bookmark.entity';
 import { Rating } from './entities/rating.entity';
 import { ViewHistory } from './entities/view-history.entity';
+import { JwtModule } from '@nestjs/jwt';
 
 @Module({
   imports: [
@@ -32,6 +33,9 @@ import { ViewHistory } from './entities/view-history.entity';
       Rating,
       ViewHistory,
     ]),
+    JwtModule.register({
+      secret: '여기에_실제_JWT_시크릿_키_입력', // Auth 환경변수(process.env.JWT_SECRET)를 넣어주면 가장 좋아요!
+    }),
   ],
   controllers: [WebtoonController, RatingController, BookmarkController],
   providers: [

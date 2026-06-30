@@ -8,6 +8,7 @@ import {
   Req,
   Res,
   UseGuards,
+  Headers,
 } from '@nestjs/common';
 import { NaverCrawlerService } from './crawler/naver-crawler.service';
 import { KakaoCrawlerService } from './crawler/kakao-crawler.service';
@@ -19,6 +20,7 @@ import { LezhinCrawlerService } from './crawler/lezhin-crawler.service';
 import { LezhinEpisodeCrawlerService } from './crawler/lezhin-episode-crawler.service';
 import type { Response } from 'express';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
+import { JwtService } from '@nestjs/jwt';
 
 @Controller('webtoon') // 주소 앞에 /webtoon 이 붙습니다.
 export class WebtoonController {
@@ -31,6 +33,7 @@ export class WebtoonController {
     private readonly kakaoEpisodeCrawler: KakaoEpisodeCrawlerService,
     private readonly lezhinService: LezhinCrawlerService,
     private readonly lezhinEpisodeService: LezhinEpisodeCrawlerService,
+    private readonly jwtService: JwtService,
   ) {}
 
   @Get('naver') // 접속 주소: GET /webtoon/naver
@@ -166,6 +169,28 @@ export class WebtoonController {
   @Get('my/recent')
   async getMyRecentWebtoons(@Req() req: any) {
     return this.webtoonService.getMyRecentWebtoons(req.user);
+  }
+
+  @Get(':id/recommendations')
+  async getRecommendations(
+    @Param('id') id: string,
+    @Headers('authorization') authHeader?: string,
+  ) {
+    let userId: number | undefined = undefined;
+
+    // 토큰이 넘어왔다면 디코딩해서 유저 ID를 몰래 뽑아냅니다.
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      try {
+        const decoded = this.jwtService.verify(token);
+        userId = decoded.id; // 토큰 안에 들어있는 유저 식별자
+      } catch (error) {
+        // 토큰이 만료되었거나 잘못되어도 튕겨내지 않고 그냥 비로그인 취급 (조용히 넘어감)
+      }
+    }
+
+    // 아까 만든 서비스 로직으로 토스!
+    return this.webtoonService.getRecommendedWebtoons(id, userId, 5);
   }
 
   @UseGuards(JwtAuthGuard)
