@@ -1,11 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, ArrayContains } from 'typeorm'; // 🚀 IsNull, ArrayContains 추가!
+import { Repository, IsNull, ArrayContains } from 'typeorm';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { Episode } from '../entities/episode.entity';
-import { Webtoon } from '../entities/webtoon.entity'; // 🚀 Webtoon 엔티티 추가!
+import { Webtoon } from '../entities/webtoon.entity';
 import { WebtoonService } from '../webtoon.service';
+import { AppConfig } from '../entities/config.entity';
 
 @Injectable()
 export class LezhinEpisodeCrawlerService {
@@ -14,14 +15,42 @@ export class LezhinEpisodeCrawlerService {
   constructor(
     @InjectRepository(Episode)
     private readonly episodeRepository: Repository<Episode>,
-
-    // 🚀 웹툰 목록을 조회하기 위해 Webtoon 레포지토리 주입 추가!
     @InjectRepository(Webtoon)
     private readonly webtoonRepository: Repository<Webtoon>,
-
+    @InjectRepository(AppConfig)
+    private readonly configRepository: Repository<AppConfig>,
     private readonly httpService: HttpService,
-    private readonly webtoonService: WebtoonService, // 🚀 줄거리, 장르 업데이트용 마스터 서비스
+    private readonly webtoonService: WebtoonService,
   ) {}
+
+  // =========================================================================
+  // 🔒 [NEW] DB에서 레진 토큰 및 쿠키 실시간 통합 조회 헬퍼 함수
+  // =========================================================================
+  private async getLezhinAuthCredentials(): Promise<{
+    token: string | null;
+    cookie: string | null;
+  }> {
+    try {
+      const [tokenConfig, cookieConfig] = await Promise.all([
+        this.configRepository.findOne({
+          where: { variablename: 'LEZHIN_TOKEN' },
+        }),
+        this.configRepository.findOne({
+          where: { variablename: 'LEZHIN_COOKIE' },
+        }),
+      ]);
+
+      return {
+        token: tokenConfig ? tokenConfig.value : null,
+        cookie: cookieConfig ? cookieConfig.value : null,
+      };
+    } catch (error) {
+      this.logger.error(
+        `❌ DB에서 레진 인증 정보를 불러오는 중 에러 발생: ${(error as Error).message}`,
+      );
+      return { token: null, cookie: null };
+    }
+  }
 
   // =========================================================================
   // 🚀 레진 단일 웹툰 상세 정보(줄거리, 통합 해시태그) & 회차 수집기
@@ -38,10 +67,11 @@ export class LezhinEpisodeCrawlerService {
       'x-lz-country': 'kr',
     };
 
-    if (process.env.LEZHIN_TOKEN)
-      headers['Authorization'] = process.env.LEZHIN_TOKEN;
-    if (process.env.LEZHIN_COOKIE)
-      headers['Cookie'] = process.env.LEZHIN_COOKIE;
+    // 🚀 [수정] 환경변수 대신 DB에서 인증 및 쿠키 토큰을 실시간으로 취득
+    const { token, cookie } = await this.getLezhinAuthCredentials();
+
+    if (token) headers['Authorization'] = token;
+    if (cookie) headers['Cookie'] = cookie;
 
     try {
       const { data } = await firstValueFrom(
@@ -58,10 +88,7 @@ export class LezhinEpisodeCrawlerService {
         return false;
       }
 
-      // 🎯 1. 웹툰 상세 정보(줄거리, 통합 해시태그) 추출
       const description = content.display?.synopsis || '';
-
-      // 🚀 네이버 방식 적용: 레진의 genres와 tags를 하나의 배열로 합치고 중복 제거!
       const rawGenres = content.genres || [];
       const rawTags = content.properties?.tags || [];
       const combinedGenres = Array.from(new Set([...rawGenres, ...rawTags]));
@@ -72,30 +99,26 @@ export class LezhinEpisodeCrawlerService {
 
       let lastEpisodeUpdatedAt: Date | null = null;
       if (episodes && episodes.length > 0) {
-        // 레진도 보통 첫 번째(index 0)가 가장 최신 회차야
         const latestEp = episodes[0];
         if (latestEp.publishedAt) {
           lastEpisodeUpdatedAt = new Date(latestEp.publishedAt);
         }
       }
 
-      // 합쳐진 해시태그 배열을 기존 업데이트 함수로 그대로 넘겨줌
       await this.webtoonService.updateWebtoonDetails(
         `lezhin_${content.id}`,
         description,
         combinedGenres,
-        isAdultCheck, // 👈 5번째 자리로 밀려난 성인 여부(boolean)!
+        isAdultCheck,
       );
       this.logger.log(
         `📝 [레진코믹스 ${alias}] 상세 정보(줄거리/통합해시태그) 업데이트 완료!`,
       );
 
-      // 🎯 2. 회차(Episode) 데이터 조립 및 저장
       if (episodes.length === 0) return true;
 
       const episodesToSave = episodes.map((ep: any) => {
         const deepLinkUrl = `https://www.lezhin.com/ko/comic/${alias}/${ep.name}`;
-        // 🚀 아까 우리가 완성한 썸네일 공식!
         const thumbnailUrl = `https://ccdn.lezhin.com/v2/comics/${content.id}/episodes/${ep.id}/images/cover.webp?updated=${ep.updatedAt}&width=164`;
 
         return {
@@ -123,23 +146,19 @@ export class LezhinEpisodeCrawlerService {
       );
       return true;
     } catch (error: any) {
-      // 🚀 상세 API 호출 시 토큰 만료 에러 방어막
       if (error.response?.status === 401) {
         this.logger.error(
-          `🚨 [레진코믹스 ${alias}] 상세 수집 실패: 토큰이 만료되었습니다. .env를 확인하세요.`,
+          `🚨 [레진코믹스 ${alias}] 상세 수집 실패: 토큰이 만료되었습니다. DB 설정을 확인하세요.`,
         );
       } else {
         this.logger.error(
           `❌ [레진코믹스 ${alias}] 수집 중 통신 에러: ${error.message}`,
         );
       }
-      return false; // 서버 중단 없이 안전하게 종료
+      return false;
     }
   }
 
-  // =========================================================================
-  // 🚀 레진코믹스 전체 웹툰 상세/회차 수집 자동화 로직 (최초 1회 데이터 적재용)
-  // =========================================================================
   async syncAllLezhinEpisodes() {
     const targetWebtoons = await this.webtoonRepository.find({
       where: { platform: 'lezhin' },
@@ -164,7 +183,7 @@ export class LezhinEpisodeCrawlerService {
       const success = await this.seedLezhinEpisodes(webtoon.alias);
       if (success) successCount++;
 
-      await delay(1000); // 🛡️ IP 차단 방지 방어막
+      await delay(1000);
     }
 
     this.logger.log(
@@ -173,13 +192,9 @@ export class LezhinEpisodeCrawlerService {
     return { targetCount: targetWebtoons.length, successCount };
   }
 
-  // =========================================================================
-  // 🚀 레진코믹스 스마트 타겟팅 상세/회차 수집기 (매일 돌아가는 스케줄러용)
-  // =========================================================================
   async syncSmartLezhinEpisodes() {
     this.logger.log('🧠 [레진코믹스] 스마트 타겟팅 수집을 시작합니다...');
 
-    // 1. 오늘 요일을 영어 대문자로 구하기 (예: 'WEDNESDAY')
     const days = [
       'SUNDAY',
       'MONDAY',
@@ -191,19 +206,16 @@ export class LezhinEpisodeCrawlerService {
     ];
     const todayEnglish = days[new Date().getDay()];
 
-    // 🎯 타겟 A: 소개글이 없는 신작이나 누락된 웹툰
     const missingWebtoons = await this.webtoonRepository.find({
       where: { platform: 'lezhin', description: IsNull() },
     });
 
-    // 🎯 타겟 B: 오늘 연재하는 웹툰 (최신화 업데이트 용도)
     const todayWebtoons = await this.webtoonRepository.find({
       where: { platform: 'lezhin', publishDays: ArrayContains([todayEnglish]) },
     });
 
-    // 💡 두 부대를 합치고 중복 제거 (신작인데 오늘 연재작일 수도 있으니까!)
     const targetMap = new Map();
-    [...missingWebtoons, ...todayWebtoons].forEach((webtoon) => {
+    [missingWebtoons, todayWebtoons].flat().forEach((webtoon) => {
       targetMap.set(webtoon.id, webtoon);
     });
 
@@ -220,7 +232,6 @@ export class LezhinEpisodeCrawlerService {
     const delay = (ms: number) =>
       new Promise((resolve) => setTimeout(resolve, ms));
 
-    // 🚀 타겟팅된 웹툰들만 핀셋으로 집어서 상세/회차 수집 돌리기!
     for (const webtoon of finalTargets) {
       if (!webtoon.alias) continue;
 
@@ -229,8 +240,6 @@ export class LezhinEpisodeCrawlerService {
       if (success) {
         successCount++;
 
-        // 🚨 [핵심 방어막] 타겟 A(단순 정보 보강)로 불려온 옛날 완결작이 '최신'으로 둔갑하는 것을 방지!
-        // 이 웹툰의 연재 요일에 '오늘(todayEnglish)'이 포함되어 있을 때만 연재일을 갱신합니다.
         if (webtoon.publishDays?.includes(todayEnglish)) {
           await this.webtoonRepository.update(webtoon.id, {
             lastEpisodeUpdatedAt: new Date(),

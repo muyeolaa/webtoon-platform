@@ -4,9 +4,9 @@ import { firstValueFrom } from 'rxjs';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Webtoon } from '../entities/webtoon.entity';
+import { AppConfig } from '../entities/config.entity'; // 🚀 1. AppConfig 추가
 
-@Injectable()
-@Injectable()
+@Injectable() // (중복된 데코레이터 정리 완료!)
 export class KakaoCrawlerService {
   private readonly logger = new Logger(KakaoCrawlerService.name);
 
@@ -14,16 +14,16 @@ export class KakaoCrawlerService {
     private readonly httpService: HttpService,
     @InjectRepository(Webtoon)
     private readonly webtoonRepository: Repository<Webtoon>,
+    @InjectRepository(AppConfig) // 🚀 2. DB 토큰 조회를 위한 레포지토리 주입
+    private readonly configRepository: Repository<AppConfig>,
   ) {}
 
   async getKakaoWebtoons() {
     this.logger.log('🚀 카카오 웹툰 API(BFF) 기반 크롤링을 시작합니다...');
     let totalSavedCount = 0;
 
-    // 🗓️ 1. 카카오 탭 ID (1~7: 요일, 11: 신작, 12: 완결)
     const targetTabs = [1, 2, 3, 4, 5, 6, 7, 11, 12];
 
-    // 로그 출력용 이름 사전
     const tabNameMap: { [key: number]: string } = {
       1: '월요일',
       2: '화요일',
@@ -36,7 +36,6 @@ export class KakaoCrawlerService {
       12: '📚완결',
     };
 
-    // 🔠 한국어 요일을 우리 DB용 영어로 바꾸는 번역기 ("월,목" -> ["MONDAY", "THURSDAY"])
     const parsePublishDays = (pubPeriod: string) => {
       if (!pubPeriod) return ['UNKNOWN'];
       if (pubPeriod === '완결') return ['FINISHED'];
@@ -57,8 +56,21 @@ export class KakaoCrawlerService {
         .filter(Boolean);
     };
 
+    // 🚀 [NEW] 크롤링 시작 전 DB에서 카카오 쿠키를 한 번만 가져옵니다!
+    const cookieConfig = await this.configRepository.findOne({
+      where: { variablename: 'KAKAO_COOKIE' },
+    });
+    const kakaoCookie = cookieConfig?.value;
+
+    if (kakaoCookie) {
+      this.logger.log('🔑 [카카오] DB에서 인증 쿠키가 확인되었습니다.');
+    } else {
+      this.logger.warn(
+        '⚠️ [카카오] DB에 인증 쿠키가 없습니다. 기본 모드로 수집합니다.',
+      );
+    }
+
     try {
-      // 🔄 2. 지정한 탭(요일+신작+완결)을 순회합니다.
       for (const tabId of targetTabs) {
         let page = 0;
         let isEnd = false;
@@ -66,7 +78,6 @@ export class KakaoCrawlerService {
         this.logger.log(`⏳ [${tabNameMap[tabId]}] 탭 데이터 수집 중...`);
 
         while (!isEnd) {
-          // 🚀 tab_uid 자리에 요일/신작/완결 번호를 넣어서 요청!
           const url = `https://bff-page.kakao.com/api/gateway/view/v2/landing/dayofweek?category_uid=10&subcategory_uid=0&screen_uid=52&bm=A&tab_uid=${tabId}&page=${page}`;
 
           const headers: any = {
@@ -75,44 +86,34 @@ export class KakaoCrawlerService {
               'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           };
 
-          // 🚀 2. .env에 카카오 쿠키가 있다면 헤더에 장착!
-          const kakaoCookie = process.env.KAKAO_COOKIE;
+          // 🚀 DB에서 가져온 쿠키를 헤더에 장착!
           if (kakaoCookie) {
             headers['Cookie'] = kakaoCookie;
           }
 
           const { data } = await firstValueFrom(
-            this.httpService.get(url, {
-              headers: {
-                Referer: 'https://page.kakao.com/',
-                'User-Agent':
-                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-              },
-            }),
+            this.httpService.get(url, { headers }),
           );
 
           const rawWebtoons = data?.result?.list;
 
           if (!rawWebtoons || rawWebtoons.length === 0) {
-            break; // 데이터가 없으면 다음 탭으로 이동
+            break;
           }
 
-          // ✂️ 3. 데이터 정제
           const finalWebtoons = rawWebtoons.map((item: any) => {
-            // 🚀 카카오페이지의 새로운 asset_property 구조에 맞춰서 경로 수정!
             const imagePath =
-              item.asset_property?.banner_img || // 1순위: 구형 메인 썸네일 (👈 '괴담 동아리'가 여기서 걸림!)
-              item.asset_property?.banner_set?.main_img || // 2순위: 신형 메인 썸네일
-              item.asset_property?.card_set?.background_img || // 3순위: 신형 서브 썸네일
-              item.asset_property?.card_img || // 4순위: 구형 서브 썸네일
-              item.asset_property?.banner_set?.background_img || // 5순위: 신형 배경 썸네일
+              item.asset_property?.banner_img ||
+              item.asset_property?.banner_set?.main_img ||
+              item.asset_property?.card_set?.background_img ||
+              item.asset_property?.card_img ||
+              item.asset_property?.banner_set?.background_img ||
               '';
 
             const fullThumbnailUrl = imagePath
               ? `https://dn-img-page.kakao.com/download/resource?kid=${imagePath}&filename=th3`
-              : ''; // 만약 끝까지 못 찾으면 아예 빈 문자열 처리
+              : '';
 
-            // DB에 넣을 데이터 조립
             return {
               id: `kakao_${item.series_id}`,
               titleId: item.series_id.toString(),
@@ -122,29 +123,23 @@ export class KakaoCrawlerService {
               up: false,
               rest: item.state === 'ST62',
               bm: item.is_waitfree || item.business_model !== 'F',
-
-              // 🚀 수정 포인트: 현재 순회 중인 탭이 12(완결)라면 무조건 ['FINISHED']를 부여하고, 아니라면 기존 요일 파싱 진행!
               publishDays:
                 tabId === 12 ? ['FINISHED'] : parsePublishDays(item.pub_period),
-
               isAdult: item.age_grade === 19,
               starScore: 0,
               platform: 'kakao',
             };
           });
 
-          // 📦 4. DB 저장
           await this.webtoonRepository.upsert(finalWebtoons, ['id']);
           totalSavedCount += finalWebtoons.length;
 
-          // 🚩 5. 탈출 조건 확인
           if (data.result.is_end === true) {
             isEnd = true;
           } else {
             page++;
           }
 
-          // IP 차단 방지 0.5초 대기
           await new Promise((resolve) => setTimeout(resolve, 500));
         }
       }
@@ -152,10 +147,7 @@ export class KakaoCrawlerService {
       this.logger.log(
         `✅ 모든 카카오 웹툰 총 ${totalSavedCount}개 수집 및 저장 완료!`,
       );
-      return {
-        message: '카카오 웹툰 전체(요일+신작+완결) 수집 완료!',
-        count: totalSavedCount,
-      };
+      return { message: '카카오 웹툰 전체 수집 완료!', count: totalSavedCount };
     } catch (error) {
       this.logger.error(
         `🚨 [카카오 크롤링 에러]: ${error instanceof Error ? error.message : String(error)}`,

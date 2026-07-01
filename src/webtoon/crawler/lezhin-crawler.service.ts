@@ -5,6 +5,7 @@ import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { Webtoon } from '../entities/webtoon.entity';
 import { WebtoonService } from '../webtoon.service';
+import { AppConfig } from '../entities/config.entity'; // 🚀 1. AppConfig 엔티티 추가
 
 @Injectable()
 export class LezhinCrawlerService {
@@ -13,6 +14,8 @@ export class LezhinCrawlerService {
   constructor(
     @InjectRepository(Webtoon)
     private readonly webtoonRepository: Repository<Webtoon>,
+    @InjectRepository(AppConfig) // 🚀 2. DB 토큰 조회를 위한 레포지토리 주입
+    private readonly configRepository: Repository<AppConfig>,
     private readonly httpService: HttpService,
     private readonly webtoonService: WebtoonService,
   ) {}
@@ -25,7 +28,6 @@ export class LezhinCrawlerService {
       '🔴 [레진코믹스] API 기반 전체 리스트 수집을 시작합니다...',
     );
 
-    // 🚀 네가 찾아낸 정확한 10일 연재 파라미터('day_10') 적용!
     const filters = [
       'mon',
       'tue',
@@ -49,14 +51,19 @@ export class LezhinCrawlerService {
       'x-lz-country': 'kr',
     };
 
-    if (process.env.LEZHIN_TOKEN) {
+    // 🚀 [수정] 환경변수 대신 DB에서 실시간 레진 토큰을 조회합니다.
+    const lezhinTokenConfig = await this.configRepository.findOne({
+      where: { variablename: 'LEZHIN_TOKEN' },
+    });
+
+    if (lezhinTokenConfig?.value) {
       this.logger.log(
-        '🔑 [레진코믹스] 성인 인증 토큰이 감지되었습니다. 19금 웹툰 수집을 활성화합니다.',
+        '🔑 [레진코믹스] DB에서 성인 인증 토큰이 확인되었습니다. 19금 웹툰 수집을 활성화합니다.',
       );
-      headers['Authorization'] = process.env.LEZHIN_TOKEN;
+      headers['Authorization'] = lezhinTokenConfig.value;
     } else {
       this.logger.warn(
-        '⚠️ [레진코믹스] 토큰이 없습니다. 19금 성인 웹툰은 수집되지 않습니다.',
+        '⚠️ [레진코믹스] DB에 토큰이 없습니다. 19금 성인 웹툰은 수집되지 않습니다.',
       );
     }
 
@@ -137,7 +144,7 @@ export class LezhinCrawlerService {
     } catch (error: any) {
       if (error.response?.status === 401) {
         this.logger.error(
-          '🚨 [레진코믹스] 인증 토큰이 만료되었거나 유효하지 않습니다! .env 파일의 LEZHIN_TOKEN을 새로 교체해 주세요.',
+          '🚨 [레진코믹스] 인증 토큰이 만료되었거나 유효하지 않습니다! DB의 LEZHIN_TOKEN을 새로 교체해 주세요.',
         );
       } else {
         this.logger.error(
@@ -148,9 +155,6 @@ export class LezhinCrawlerService {
     }
   }
 
-  // =========================================================================
-  // 🛠️ 헬퍼 함수: 레진의 요일 텍스트를 우리 DB용 영어 대문자로 변환
-  // =========================================================================
   private convertDayToEnglish(day: string): string {
     const daysMap: Record<string, string> = {
       MON: 'MONDAY',
@@ -160,7 +164,6 @@ export class LezhinCrawlerService {
       FRI: 'FRIDAY',
       SAT: 'SATURDAY',
       SUN: 'SUNDAY',
-      // 🚀 혹시 모를 다양한 10일 연재 표기법 방어!
       DAY_10: 'TEN_DAYS',
       '10N': 'TEN_DAYS',
       '10D': 'TEN_DAYS',

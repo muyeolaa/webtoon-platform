@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like } from 'typeorm';
 import { Episode } from '../entities/episode.entity';
 import { Webtoon } from '../entities/webtoon.entity';
+import { AppConfig } from '../entities/config.entity';
 
 // 1초 휴식용 수면제 함수
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -14,10 +15,42 @@ export class NaverEpisodeCrawlerService {
     private readonly episodeRepository: Repository<Episode>,
     @InjectRepository(Webtoon)
     private readonly webtoonRepository: Repository<Webtoon>,
+    @InjectRepository(AppConfig) // 🚀 2. DB 토큰 조회를 위한 레포지토리 주입
+    private readonly configRepository: Repository<AppConfig>,
   ) {}
 
   // =========================================================================
-  // 🟢 1. 단일 웹툰 회차 수집기 (19+ 쿠키 장착 완료!)
+  // 🔒 [NEW] DB에서 네이버 성인 인증 토큰(쿠키) 가져오기 전용 헬퍼 함수
+  // =========================================================================
+  private async getNaverAuthCookies(): Promise<{
+    nidAut: string | null;
+    nidSes: string | null;
+  }> {
+    try {
+      const [autConfig, sesConfig] = await Promise.all([
+        this.configRepository.findOne({
+          where: { variablename: 'NAVER_NID_AUT' },
+        }),
+        this.configRepository.findOne({
+          where: { variablename: 'NAVER_NID_SES' },
+        }),
+      ]);
+
+      return {
+        nidAut: autConfig ? autConfig.value : null,
+        nidSes: sesConfig ? sesConfig.value : null,
+      };
+    } catch (error) {
+      console.error(
+        '❌ DB에서 성인 인증 토큰을 불러오는 중 에러 발생:',
+        (error as Error).message,
+      );
+      return { nidAut: null, nidSes: null };
+    }
+  }
+
+  // =========================================================================
+  // 🟢 1. 단일 웹툰 회차 수집기 (DB 쿠키 장착 완료!)
   // =========================================================================
   async seedSingleWebtoonEpisodes(titleId: string, maxPage: number = 999) {
     let currentPage = 1;
@@ -42,8 +75,8 @@ export class NaverEpisodeCrawlerService {
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     };
 
-    const nidAut = process.env.NAVER_NID_AUT;
-    const nidSes = process.env.NAVER_NID_SES;
+    // 🚀 [수정] 환경변수 대신 DB에서 실시간 쿠키 정보를 가져옵니다.
+    const { nidAut, nidSes } = await this.getNaverAuthCookies();
 
     if (nidAut && nidSes) {
       headers['Cookie'] = `NID_AUT=${nidAut}; NID_SES=${nidSes};`;
@@ -147,7 +180,6 @@ export class NaverEpisodeCrawlerService {
     forceUpdate: boolean = false,
     startNumber: number = 1,
   ) {
-    // ... (기존 코드 그대로 유지) ...
     const naverWebtoons = await this.webtoonRepository.find({
       where: { id: Like('naver_%') },
       order: { id: 'ASC' },
@@ -188,7 +220,7 @@ export class NaverEpisodeCrawlerService {
     if (failedWebtoons.length > 0) {
       console.log(`🚨 에러 발생 ID 목록:`, failedWebtoons);
     } else {
-      console.log(`✨ 완벽하게 모두 수집되었습니다.`);
+      `✨ 완벽하게 모두 수집되었습니다.`;
     }
 
     return { message: '전체 수집 완료!' };
@@ -198,7 +230,6 @@ export class NaverEpisodeCrawlerService {
   // 🚀 3. 매일 새벽용: 최신 1페이지 업데이트 (기존과 동일)
   // =========================================================================
   async syncUpdatedEpisodes() {
-    // ... (기존 코드 그대로 유지) ...
     const updatedWebtoons = await this.webtoonRepository.find({
       where: { platform: 'naver', up: true },
     });
@@ -239,7 +270,7 @@ export class NaverEpisodeCrawlerService {
   }
 
   // =========================================================================
-  // ⭐ 4. [NEW] 누락된 웹툰(19금 등) 전용 재수집 스위치! / 사실 별로 쓸일없을듯?
+  // ⭐ 4. [NEW] 누락된 웹툰(19금 등) 전용 재수집 스위치!
   // =========================================================================
   async seedMissingEpisodes() {
     console.log(
@@ -304,7 +335,6 @@ export class NaverEpisodeCrawlerService {
       `🔞 [탐색 시작] 19금(isAdult: true) 네이버 웹툰을 모두 찾습니다...`,
     );
 
-    // 🚀 DB에서 성인 웹툰만 쏙 골라오기!
     const adultWebtoons = await this.webtoonRepository.find({
       where: { platform: 'naver', isAdult: true },
     });
@@ -326,11 +356,10 @@ export class NaverEpisodeCrawlerService {
         `\n▶️ [19금 덮어쓰기 ${i + 1}/${adultWebtoons.length}] Title ID: ${numericTitleId}`,
       );
 
-      // 💡 Upsert 방식이라, 빈 회차는 새로 넣고 기존 회차는 덮어씁니다!
       const isSuccess = await this.seedSingleWebtoonEpisodes(numericTitleId);
       if (isSuccess) successCount++;
 
-      await sleep(1000); // 네이버 차단 방지용 1초 휴식
+      await sleep(1000);
     }
 
     console.log(

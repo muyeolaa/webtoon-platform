@@ -28,10 +28,11 @@ import { APP_GUARD } from '@nestjs/core';
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       synchronize: process.env.NODE_ENV !== 'production',
 
-      // 🚀 2. [매우 중요] 클라우드 DB(Neon) 접속을 위한 SSL 암호화 설정 추가!
-      ssl: {
-        rejectUnauthorized: false,
-      },
+      // 🚀 2. [매우 중요] 환경에 따라 SSL 끄고 켜기
+      // 클라우드 DB(Neon) 주소일 때만 SSL을 켜고, 로컬일 때는 끕니다!
+      ssl: process.env.DB_HOST?.includes('neon.tech')
+        ? { rejectUnauthorized: false }
+        : false,
     }),
     ScheduleModule.forRoot(),
 

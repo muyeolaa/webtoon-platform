@@ -58,12 +58,33 @@ export class WebtoonController {
     @Query('day') day?: string,
     @Query('sort') sort?: string,
     @Query('search') search?: string,
-    @Query('isAdult') isAdult?: string,
+    @Headers('authorization') authHeader?: string,
   ) {
     const pageNum = Number(page) || 1;
     const limitNum = Number(limit) || 21;
 
-    // 서비스에게 받은 파라미터를 전부 토스해줍니다!
+    let isAdultFlag = 'false';
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      try {
+        // 🚀 1. 단순히 verify(token)만 하지 않고, 명시적으로 시크릿 키를 넣어줍니다.
+        // (주의: 네 프로젝트의 .env 파일에 있는 JWT 시크릿 키 이름이 JWT_SECRET이 맞는지 확인해 줘!)
+        const decoded = this.jwtService.verify(token, {
+          secret: process.env.JWT_SECRET,
+        });
+
+        console.log('🔥 [백엔드] 토큰 해독 성공! 내용물:', decoded);
+
+        if (decoded && (decoded.sub || decoded.id)) {
+          isAdultFlag = 'true';
+          console.log(
+            '🔥 [백엔드] 인증 완료! 19금 성인물 봉인 해제 (isAdultFlag=true)',
+          );
+        }
+      } catch (error) {}
+    }
+
     return await this.webtoonService.getPaginatedWebtoons(
       pageNum,
       limitNum,
@@ -71,7 +92,7 @@ export class WebtoonController {
       day,
       sort,
       search,
-      isAdult,
+      isAdultFlag,
     );
   }
 
@@ -180,18 +201,16 @@ export class WebtoonController {
   ) {
     let userId: number | undefined = undefined;
 
-    // 토큰이 넘어왔다면 디코딩해서 유저 ID를 몰래 뽑아냅니다.
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1];
       try {
         const decoded = this.jwtService.verify(token);
-        userId = decoded.id; // 토큰 안에 들어있는 유저 식별자
-      } catch (error) {
-        // 토큰이 만료되었거나 잘못되어도 튕겨내지 않고 그냥 비로그인 취급 (조용히 넘어감)
-      }
+
+        // 🚀 [핵심 수정] 여기도 sub를 우선으로 꺼내도록 변경!
+        userId = decoded.sub || decoded.id;
+      } catch (error) {}
     }
 
-    // 아까 만든 서비스 로직으로 토스!
     return this.webtoonService.getRecommendedWebtoons(id, userId, 5);
   }
 
