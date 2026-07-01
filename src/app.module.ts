@@ -19,14 +19,19 @@ import { APP_GUARD } from '@nestjs/core';
     }),
     TypeOrmModule.forRoot({
       type: 'postgres',
-      host: 'localhost',
+      // 🚀 1. 하드코딩 제거! 이제 env 파일에서 클라우드 주소와 아이디를 읽어옵니다.
+      host: process.env.DB_HOST,
       port: parseInt(process.env.DB_PORT as string, 10),
-      username: 'postgres',
+      username: process.env.DB_USERNAME,
       password: process.env.DB_PASSWORD,
       database: process.env.DB_DATABASE,
-      // 💡 수정 1: Entity는 엔티티 파일을 넣거나, 아래처럼 자동 검색하게 만듭니다.
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       synchronize: process.env.NODE_ENV !== 'production',
+
+      // 🚀 2. [매우 중요] 클라우드 DB(Neon) 접속을 위한 SSL 암호화 설정 추가!
+      ssl: {
+        rejectUnauthorized: false,
+      },
     }),
     ScheduleModule.forRoot(),
 

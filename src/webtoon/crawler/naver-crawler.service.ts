@@ -6,6 +6,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Webtoon } from '../entities/webtoon.entity';
 import { Repository, IsNull } from 'typeorm';
 import { WebtoonService } from '../webtoon.service';
+import { NaverEpisodeCrawlerService } from './naver-episode-crawler.service';
 
 @Injectable()
 export class NaverCrawlerService {
@@ -16,6 +17,7 @@ export class NaverCrawlerService {
     @InjectRepository(Webtoon)
     private readonly webtoonRepository: Repository<Webtoon>,
     private readonly webtoonService: WebtoonService,
+    private readonly naverEpisodeCrawler: NaverEpisodeCrawlerService,
   ) {}
 
   // =========================================================================
@@ -168,7 +170,7 @@ export class NaverCrawlerService {
     }
   }
   // =========================================================================
-  // 🚀 신규 로직 2: DB를 훑어서 빈칸(소개글 Null)인 웹툰만 찾아 연속 수집  // 신작이면 소개글이 없으니 신작추적기능
+  // 🚀 신규 로직 2: DB를 훑어서 빈칸(소개글 Null)인 웹툰만 찾아 연속 수집  // 신작이면 소개글이 없으니 신작추적기능//회차정보도 긁어오기
   // =========================================================================
   async syncMissingDetails() {
     const targetWebtoons = await this.webtoonRepository.find({
@@ -191,7 +193,6 @@ export class NaverCrawlerService {
     let successCount = 0;
 
     for (const webtoon of targetWebtoons) {
-      // 💡 여기서 null 방어막 추가 (과거 유령 데이터 패스용)
       if (!webtoon.titleId || webtoon.titleId === 'null') {
         this.logger.warn(
           `⚠️ [${webtoon.id}] titleId가 비정상입니다. 건너뜁니다.`,
@@ -199,24 +200,43 @@ export class NaverCrawlerService {
         continue;
       }
 
+      // 1. 상세 정보 수집!
       const success = await this.crawlAndSaveDetails(
         webtoon.titleId,
         webtoon.id,
       );
 
+      // 2. 상세 정보 수집에 성공했다면?
       if (success) {
         successCount++;
+
+        // 🚀 [NEW] 여기서 바로 해당 웹툰의 회차 정보도 싹쓸이하도록 호출!
+        this.logger.log(
+          `🔗 [연계 작업] ${webtoon.titleId} 상세 정보 완료. 즉시 회차 정보를 수집합니다!`,
+        );
+
+        try {
+          // 기존에 잘 만들어둔 단일 웹툰 회차 수집 함수 실행
+          await this.naverEpisodeCrawler.seedSingleWebtoonEpisodes(
+            webtoon.titleId,
+          );
+        } catch (error) {
+          this.logger.error(
+            `❌ [${webtoon.titleId}] 연계 회차 수집 중 에러 발생:`,
+            error,
+          );
+        }
       }
 
-      await delay(1000);
+      await delay(1000); // 1초 휴식 (과부하 방지)
     }
 
     this.logger.log(
-      `🎉 빈칸 채우기 완료! (성공: ${successCount} / 전체: ${targetWebtoons.length})`,
+      `🎉 빈칸 채우기 & 회차 동기화 완료! (성공: ${successCount} / 전체: ${targetWebtoons.length})`,
     );
 
     return {
-      message: '상세 정보 빈칸 채우기 작업이 완료되었습니다.',
+      message: '상세 정보 및 회차 동기화 작업이 완료되었습니다.',
       targetCount: targetWebtoons.length,
       successCount,
     };

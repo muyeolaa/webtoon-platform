@@ -98,25 +98,38 @@ export class WebtoonService {
     if (search) {
       qb.andWhere('webtoon.titleName ILIKE :search', { search: `%${search}%` });
     } else if (day) {
-      const dayTranslator: Record<string, string> = {
-        mon: 'MONDAY',
-        tue: 'TUESDAY',
-        wed: 'WEDNESDAY',
-        thu: 'THURSDAY',
-        fri: 'FRIDAY',
-        sat: 'SATURDAY',
-        sun: 'SUNDAY',
-        end: 'FINISHED',
-      };
-      const englishDay = dayTranslator[day];
-      if (englishDay) {
-        qb.andWhere(':day = ANY(webtoon.publishDays)', { day: englishDay });
+      // 🚀 'latest(최신)'일 때는 특정 요일로 필터링하지 않고, 정렬 기준만 강제로 '최신순'으로 고정!
+      if (day === 'latest') {
+        sort = '최신순'; // 사용자가 다른 정렬을 골랐더라도 강제로 덮어씌움
+      } else {
+        // 일반 요일(mon~sun)이거나 완결(end)일 때만 배열 필터링 적용
+        const dayTranslator: Record<string, string> = {
+          mon: 'MONDAY',
+          tue: 'TUESDAY',
+          wed: 'WEDNESDAY',
+          thu: 'THURSDAY',
+          fri: 'FRIDAY',
+          sat: 'SATURDAY',
+          sun: 'SUNDAY',
+          end: 'FINISHED',
+        };
+        const englishDay = dayTranslator[day];
+        if (englishDay) {
+          qb.andWhere(':day = ANY(webtoon.publishDays)', { day: englishDay });
+        }
       }
     }
 
     // 5. 다이나믹 정렬 적용
     if (sort === '조회순') {
       qb.orderBy('webtoon.viewCount', 'DESC').addOrderBy('webtoon.id', 'DESC');
+    } else if (sort === '업데이트순' || sort === '최신순') {
+      // 🚀 핵심: 'NULLS LAST' 옵션을 추가해서 null인 데이터들을 맨 끝으로 밀어냅니다!
+      qb.orderBy(
+        'webtoon.lastEpisodeUpdatedAt',
+        'DESC',
+        'NULLS LAST',
+      ).addOrderBy('webtoon.id', 'DESC');
     } else if (sort === '업데이트순' || sort === '최신순') {
       qb.orderBy('webtoon.lastEpisodeUpdatedAt', 'DESC').addOrderBy(
         'webtoon.id',
