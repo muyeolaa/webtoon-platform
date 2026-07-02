@@ -27,6 +27,7 @@ import { APP_GUARD } from '@nestjs/core';
       database: process.env.DB_DATABASE,
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       synchronize: process.env.NODE_ENV !== 'production',
+      poolSize: 10,
 
       // 🚀 2. [매우 중요] 환경에 따라 SSL 끄고 켜기
       // 클라우드 DB(Neon) 주소일 때만 SSL을 켜고, 로컬일 때는 끕니다!
