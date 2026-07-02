@@ -9,14 +9,21 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     super({
       clientID: process.env.GOOGLE_CLIENT_ID || '임시_클라이언트_ID',
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || '임시_시크릿_KEY',
-      callbackURL: 'http://localhost:3000/auth/google/callback', // 구글 도착지 주소
+      callbackURL:
+        process.env.GOOGLE_CALLBACK_URL ||
+        'http://localhost:3000/auth/google/callback',
       scope: ['email', 'profile'], // 구글한테서 받아올 정보 (이메일, 프로필)
     });
   }
 
-  async validate(accessToken: string, refreshToken: string, profile: any, done: VerifyCallback) {
+  async validate(
+    accessToken: string,
+    refreshToken: string,
+    profile: any,
+    done: VerifyCallback,
+  ) {
     const { id, emails, displayName } = profile;
-    
+
     const user = {
       email: emails[0].value,
       nickname: displayName, // 구글 이름 (초기 가입 시엔 '유저_XXXX'로 바뀜)
