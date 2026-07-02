@@ -40,7 +40,7 @@ export class WebtoonSchedulerService {
   /**
    * 매일 새벽 3시에 자동 실행 (한국 시간 기준)
    */
-  @Cron('0 3 * * *', { timeZone: 'Asia/Seoul' })
+  @Cron('30 23 * * *', { timeZone: 'Asia/Seoul' })
   async handleDailyCrawling() {
     this.logger.log('🚀 [Webtoon Auto Bot] 새벽 정기 배치 작업을 시작합니다.');
 
