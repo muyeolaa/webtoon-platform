@@ -10,7 +10,9 @@ export class NaverStrategy extends PassportStrategy(Strategy, 'naver') {
       // 💡 개발용 네이버 개발자 센터에서 발급받을 값들 (이따가 환경변수에 넣을 거야)
       clientID: process.env.NAVER_CLIENT_ID || '임시_클라이언트_ID',
       clientSecret: process.env.NAVER_CLIENT_SECRET || '임시_시크릿_KEY',
-      callbackURL: 'http://localhost:3000/auth/naver/callback', // 백엔드 도착지 주소
+      callbackURL:
+        process.env.NAVER_CALLBACK_URL ||
+        'http://localhost:3000/auth/kakao/callback',
     });
   }
 

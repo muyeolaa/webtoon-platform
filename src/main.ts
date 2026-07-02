@@ -34,4 +34,5 @@ async function bootstrap() {
   await app.listen(port);
   console.log(`🚀 백엔드 서버가 ${port}번 포트에서 실행 중입니다!`);
 }
+
 bootstrap();
