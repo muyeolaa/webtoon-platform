@@ -7,8 +7,13 @@ import { Strategy, Profile } from 'passport-kakao';
 export class KakaoStrategy extends PassportStrategy(Strategy, 'kakao') {
   constructor() {
     super({
-      clientID: process.env.KAKAO_CLIENT_ID as string, // 🚀 "이건 무조건 string이야!" 라고 알려줌
-      callbackURL: 'http://localhost:3000/auth/kakao/callback',
+      clientID: process.env.KAKAO_CLIENT_ID as string,
+      // 🚀 [추가] 카카오 서버와 비밀 대화를 나눌 철통 보안 시크릿 키 장착!
+      clientSecret: process.env.KAKAO_CLIENT_SECRET as string,
+      // 🚀 [수정] 배포 환경(Render)에서는 환경변수를, 로컬에서는 기존 주소를 쓰도록 유연하게 설정!
+      callbackURL:
+        process.env.KAKAO_CALLBACK_URL ||
+        'http://localhost:3000/auth/kakao/callback',
     });
   }
 

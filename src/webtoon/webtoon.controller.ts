@@ -74,13 +74,8 @@ export class WebtoonController {
           secret: process.env.JWT_SECRET,
         });
 
-        console.log('🔥 [백엔드] 토큰 해독 성공! 내용물:', decoded);
-
         if (decoded && (decoded.sub || decoded.id)) {
           isAdultFlag = 'true';
-          console.log(
-            '🔥 [백엔드] 인증 완료! 19금 성인물 봉인 해제 (isAdultFlag=true)',
-          );
         }
       } catch (error) {}
     }

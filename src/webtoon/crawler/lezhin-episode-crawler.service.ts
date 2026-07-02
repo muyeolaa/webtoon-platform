@@ -124,7 +124,7 @@ export class LezhinEpisodeCrawlerService {
         return {
           titleId: String(content.id),
           episodeNo: ep.seq,
-          title: ep.display?.displayName || ep.display?.title || ep.name,
+          title: ep.display?.title || ep.display?.displayName || ep.name,
           thumbnailUrl: thumbnailUrl,
           uploadDate: new Date(ep.publishedAt).toISOString().split('T')[0],
           url: deepLinkUrl,

@@ -1,11 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { Webtoon } from '../entities/webtoon.entity';
 import { WebtoonService } from '../webtoon.service';
-import { AppConfig } from '../entities/config.entity'; // 🚀 1. AppConfig 엔티티 추가
+import { AppConfig } from '../entities/config.entity';
 
 @Injectable()
 export class LezhinCrawlerService {
@@ -89,6 +89,26 @@ export class LezhinCrawlerService {
             break;
           }
 
+          // =====================================================================
+          // 🚀 [추가된 방어 로직] 기존 DB의 19금 상태 확인하기
+          // =====================================================================
+          // 1. 이번 페이지에서 수집한 웹툰들의 ID만 쏙 뽑아냅니다.
+          const currentLezhinIds = webtoonList.map(
+            (item: any) => `lezhin_${item.id}`,
+          );
+
+          // 2. DB에서 해당 ID들을 가진 웹툰들의 '현재 19금 상태'만 가볍게 조회합니다.
+          const existingWebtoons = await this.webtoonRepository.find({
+            where: { id: In(currentLezhinIds) },
+            select: ['id', 'isAdult'], // 성능을 위해 id와 isAdult 컬럼만 가져옴
+          });
+
+          // 3. 빠르게 찾을 수 있도록 Map 형태로 만들어 줍니다. (예: { 'lezhin_123' => true })
+          const existingAdultMap = new Map(
+            existingWebtoons.map((w) => [w.id, w.isAdult]),
+          );
+          // =====================================================================
+
           const webtoonsToSave = webtoonList.map((item: any) => {
             const authorStr = item.artists
               ? item.artists.map((a: any) => a.name).join(', ')
@@ -106,8 +126,17 @@ export class LezhinCrawlerService {
             const lezhinUpdatedAt = item.updatedAt || new Date().getTime();
             const fullThumbnailUrl = `https://ccdn.lezhin.com/v2/comics/${item.id}/images/wide.webp?updated=${lezhinUpdatedAt}`;
 
+            const webtoonId = `lezhin_${item.id}`;
+
+            // 🚀 [핵심] DB에 이미 true(19금)로 저장되어 있다면 무조건 true를 유지!
+            // 그게 아니라면(신작이거나 원래 false였다면) API에서 가져온 기본값을 씁니다.
+            const isAlreadyAdultInDB = existingAdultMap.get(webtoonId) === true;
+            const finalIsAdult = isAlreadyAdultInDB
+              ? true
+              : item.isAdult || false;
+
             return {
-              id: `lezhin_${item.id}`,
+              id: webtoonId,
               titleId: String(item.id),
               alias: item.alias,
               titleName: item.title,
@@ -115,7 +144,9 @@ export class LezhinCrawlerService {
               platform: 'lezhin',
               thumbnailUrl: fullThumbnailUrl,
               publishDays: days,
-              isAdult: item.isAdult || false,
+
+              isAdult: finalIsAdult, // 👈 방어막이 쳐진 최종 19금 판별값 적용!
+
               up: item.badges
                 ? String(item.badges).toLowerCase().includes('up')
                 : false,
