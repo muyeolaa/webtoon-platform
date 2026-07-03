@@ -93,6 +93,7 @@ export class NaverCrawlerService {
             id: `naver_${rawWebtoon.titleId}`,
             titleId: String(rawWebtoon.titleId),
             titleName: rawWebtoon.titleName,
+            searchTitle: rawWebtoon.titleName.replace(/\s+/g, ''),
             author: rawWebtoon.author,
             thumbnailUrl: rawWebtoon.thumbnailUrl,
             isAdult: rawWebtoon.adult === true,

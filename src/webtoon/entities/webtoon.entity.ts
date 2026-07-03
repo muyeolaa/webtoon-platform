@@ -24,6 +24,9 @@ export class Webtoon {
   @Column()
   titleName!: string;
 
+  @Column({ nullable: true }) // 기존 데이터와 호환성을 위해 우선 nullable로 설정하는 게 안전해
+  searchTitle?: string;
+
   @Column()
   author!: string;
 
