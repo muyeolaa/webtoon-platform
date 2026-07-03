@@ -140,6 +140,7 @@ export class LezhinCrawlerService {
               titleId: String(item.id),
               alias: item.alias,
               titleName: item.title,
+              searchTitle: item.titleName.replace(/\s+/g, ''),
               author: authorStr,
               platform: 'lezhin',
               thumbnailUrl: fullThumbnailUrl,

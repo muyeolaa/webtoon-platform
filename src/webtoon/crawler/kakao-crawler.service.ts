@@ -118,6 +118,7 @@ export class KakaoCrawlerService {
               id: `kakao_${item.series_id}`,
               titleId: item.series_id.toString(),
               titleName: item.title,
+              searchTitle: item.titleName.replace(/\s+/g, ''),
               author: item.authors || '작자 미상',
               thumbnailUrl: fullThumbnailUrl,
               up: false,

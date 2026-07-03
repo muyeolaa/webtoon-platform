@@ -96,7 +96,14 @@ export class WebtoonService {
 
     // 4. 검색어 또는 요일 필터링
     if (search) {
-      qb.andWhere('webtoon.titleName ILIKE :search', { search: `%${search}%` });
+      // 🚀 [띄어쓰기 무시 검색의 핵심!]
+      // 프론트에서 날아온 검색어("나 혼자만")에서 공백을 싹 지워버림 ("나혼자만")
+      const cleanSearch = search.replace(/\s+/g, '');
+
+      // 🚀 titleName 대신 우리가 새로 만든 searchTitle 컬럼과 비교!
+      qb.andWhere('webtoon.searchTitle ILIKE :search', {
+        search: `%${cleanSearch}%`,
+      });
     } else if (day) {
       // 🚀 'latest(최신)'일 때는 특정 요일로 필터링하지 않고, 정렬 기준만 강제로 '최신순'으로 고정!
       if (day === 'latest') {
@@ -124,17 +131,12 @@ export class WebtoonService {
     if (sort === '조회순') {
       qb.orderBy('webtoon.viewCount', 'DESC').addOrderBy('webtoon.id', 'DESC');
     } else if (sort === '업데이트순' || sort === '최신순') {
-      // 🚀 핵심: 'NULLS LAST' 옵션을 추가해서 null인 데이터들을 맨 끝으로 밀어냅니다!
+      // 🚀 중복 코드 제거 및 정리! 'NULLS LAST' 옵션 유지
       qb.orderBy(
         'webtoon.lastEpisodeUpdatedAt',
         'DESC',
         'NULLS LAST',
       ).addOrderBy('webtoon.id', 'DESC');
-    } else if (sort === '업데이트순' || sort === '최신순') {
-      qb.orderBy('webtoon.lastEpisodeUpdatedAt', 'DESC').addOrderBy(
-        'webtoon.id',
-        'DESC',
-      );
     } else if (sort === '인기순') {
       qb.orderBy('webtoon.trendingScore', 'DESC').addOrderBy(
         'webtoon.viewCount',
