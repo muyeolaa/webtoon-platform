@@ -70,20 +70,18 @@ export class WebtoonService {
     day?: string,
     sort?: string,
     search?: string,
-    isAdult?: string, // 🚀 1. 프론트에서 넘어올 파라미터 추가 ('false' 문자열로 들어옴)
+    isAdult?: string,
   ) {
     const skip = (page - 1) * limit;
 
-    // 🚀 QueryBuilder 시작!
     const qb = this.webtoonRepository.createQueryBuilder('webtoon');
 
-    // 🚨 2. [핵심] 성인 웹툰 필터링: DB에서 가져오기 전부터 아예 제외시켜버림!
-    // 프론트엔드에서 비로그인 상태일 때 '&isAdult=false'를 보내면 작동합니다.
+    // 1. 성인 웹툰 필터링
     if (isAdult === 'false') {
       qb.andWhere('webtoon.isAdult = :isAdultFlag', { isAdultFlag: false });
     }
 
-    // 3. 플랫폼 필터링
+    // 2. 플랫폼 필터링
     if (platform && platform !== '전체' && platform !== 'all') {
       const p =
         platform === '네이버' || platform === 'naver'
@@ -94,22 +92,31 @@ export class WebtoonService {
       qb.andWhere('webtoon.platform = :platform', { platform: p });
     }
 
-    // 4. 검색어 또는 요일 필터링
+    // 3. 검색어 또는 요일 필터링
     if (search) {
-      // 🚀 [띄어쓰기 무시 검색의 핵심!]
-      // 프론트에서 날아온 검색어("나 혼자만")에서 공백을 싹 지워버림 ("나혼자만")
       const cleanSearch = search.replace(/\s+/g, '');
-
-      // 🚀 titleName 대신 우리가 새로 만든 searchTitle 컬럼과 비교!
       qb.andWhere('webtoon.searchTitle ILIKE :search', {
         search: `%${cleanSearch}%`,
       });
     } else if (day) {
-      // 🚀 'latest(최신)'일 때는 특정 요일로 필터링하지 않고, 정렬 기준만 강제로 '최신순'으로 고정!
+      // 🚀 핵심 수정 부분: 'latest(최신)'일 때의 처리
       if (day === 'latest') {
-        sort = '최신순'; // 사용자가 다른 정렬을 골랐더라도 강제로 덮어씌움
+        // 프론트에서 넘어온 sort 값이 없을 때만 '최신순'을 기본값으로 줍니다.
+        // 조회순, 인기순 등이 들어왔다면 덮어쓰지 않고 살려둡니다!
+        if (!sort) {
+          sort = '최신순';
+        }
+
+        /* 💡 추가 팁: 만약 '최신' 탭에서 옛날에 완결된 웹툰이 조회순으로 올라오는 게 싫다면,
+         아래처럼 '최근 7일 이내 업데이트된 웹툰'만 걸러내는 필터를 추가할 수도 있습니다.
+         (기획상 필요 없다면 주석 처리 그대로 두시면 됩니다.)
+         
+         const oneWeekAgo = new Date();
+         oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+         qb.andWhere('webtoon.lastEpisodeUpdatedAt >= :oneWeekAgo', { oneWeekAgo });
+        */
       } else {
-        // 일반 요일(mon~sun)이거나 완결(end)일 때만 배열 필터링 적용
+        // 일반 요일이거나 완결일 때
         const dayTranslator: Record<string, string> = {
           mon: 'MONDAY',
           tue: 'TUESDAY',
@@ -127,11 +134,10 @@ export class WebtoonService {
       }
     }
 
-    // 5. 다이나믹 정렬 적용
+    // 4. 다이나믹 정렬 적용
     if (sort === '조회순') {
       qb.orderBy('webtoon.viewCount', 'DESC').addOrderBy('webtoon.id', 'DESC');
     } else if (sort === '업데이트순' || sort === '최신순') {
-      // 🚀 중복 코드 제거 및 정리! 'NULLS LAST' 옵션 유지
       qb.orderBy(
         'webtoon.lastEpisodeUpdatedAt',
         'DESC',
@@ -156,16 +162,15 @@ export class WebtoonService {
       qb.orderBy('webtoon.id', 'ASC');
     }
 
-    // 6. DB에서 데이터와 총 개수 가져오기 (이미 필터링된 상태에서 limit 개수만큼 꽉 채워서 가져옴!)
+    // 5. 데이터 가져오기
     const [webtoons, totalCount] = await qb
       .skip(skip)
       .take(limit)
       .getManyAndCount();
 
-    // 7. 프론트엔드 목록 화면(카드)에서도 예쁜 점수가 나오도록 가공해서 리턴
+    // 6. 데이터 가공
     const processedWebtoons = webtoons.map((webtoon) => {
       const virtualCount = 100;
-
       const validStarScore =
         webtoon.starScore && webtoon.starScore > 0 ? webtoon.starScore : 9.5;
 
