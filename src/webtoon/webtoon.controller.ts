@@ -189,6 +189,11 @@ export class WebtoonController {
     return this.webtoonService.getMyRecentWebtoons(req.user);
   }
 
+  @Get('sitemap-data')
+  async getSitemapData() {
+    return await this.webtoonService.getSitemapData();
+  }
+
   @Get(':id/recommendations')
   async getRecommendations(
     @Param('id') id: string,

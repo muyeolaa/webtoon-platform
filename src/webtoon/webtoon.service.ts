@@ -550,4 +550,12 @@ export class WebtoonService {
     // 5. 섞인 배열에서 최종적으로 원하는 개수(limit)만큼 잘라서 리턴!
     return shuffled.slice(0, limit);
   }
+
+  async getSitemapData() {
+    // TypeORM을 사용 중이라고 가정하고 select로 필요한 필드만 가져옵니다.
+    // 이렇게 하면 수만 개를 조회해도 메모리를 거의 쓰지 않아요!
+    return await this.webtoonRepository.find({
+      select: ['id', 'updatedAt'],
+    });
+  }
 }
