@@ -21,19 +21,24 @@ export class AllExceptionsFilter implements ExceptionFilter {
         ? exception.getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    const message =
+    const rawMessage =
       exception instanceof HttpException
         ? exception.getResponse()
         : (exception as Error).message || 'Internal server error';
 
+    const message =
+      typeof rawMessage === 'string'
+        ? rawMessage
+        : ((rawMessage as any)?.message ?? 'Internal server error');
+
     // 🚨 콘솔에 빨갛게 에러 로그를 남겨서 범인을 찾기 쉽게 만듭니다.
     console.error(`🚨 [에러 발생] 경로: ${request.url} | 내용:`, exception);
 
+    // 성공 응답(TransformInterceptor)과 동일한 {statusCode, message, data} 규격으로 통일
     response.status(status).json({
       statusCode: status,
-      timestamp: new Date().toISOString(),
-      path: request.url,
-      error: typeof message === 'string' ? { message } : message,
+      message: Array.isArray(message) ? message.join(', ') : message,
+      data: null,
     });
   }
 }

@@ -3,6 +3,7 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
@@ -30,6 +31,8 @@ async function bootstrap() {
   // 무조건 3000번으로 고정하면 에러가 나므로, process.env.PORT를 먼저 찾게 만듭니다.
 
   app.useGlobalFilters(new AllExceptionsFilter());
+  // 모든 성공 응답을 {statusCode, message, data} 규격으로 통일
+  app.useGlobalInterceptors(new TransformInterceptor());
   const port = process.env.PORT || 3000;
   await app.listen(port);
   console.log(`🚀 백엔드 서버가 ${port}번 포트에서 실행 중입니다!`);
