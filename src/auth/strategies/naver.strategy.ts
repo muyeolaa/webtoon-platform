@@ -12,7 +12,7 @@ export class NaverStrategy extends PassportStrategy(Strategy, 'naver') {
       clientSecret: process.env.NAVER_CLIENT_SECRET || '임시_시크릿_KEY',
       callbackURL:
         process.env.NAVER_CALLBACK_URL ||
-        'http://localhost:3000/auth/kakao/callback',
+        'http://localhost:3000/auth/naver/callback',
     });
   }
 
