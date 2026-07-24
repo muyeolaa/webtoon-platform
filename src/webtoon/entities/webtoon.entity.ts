@@ -14,6 +14,7 @@ import { Episode } from './episode.entity';
 import { Genre } from './genre.entity';
 
 @Entity('webtoon_table') // DB에 만들어질 진짜 테이블 이름
+@Index(['platform', 'isAdult']) // 플랫폼+연령 필터 조합 조회가 가장 빈번해서 복합 인덱스로 최적화
 export class Webtoon {
   @PrimaryColumn()
   id!: string;

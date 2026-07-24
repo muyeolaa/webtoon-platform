@@ -208,15 +208,14 @@ export class WebtoonService {
     await this.webtoonRepository.increment({ id }, 'viewCount', 1);
 
     // 2. 웹툰 상세 데이터 및 연관 데이터(에피소드, 장르) 조회
-    const webtoon = await this.webtoonRepository.findOne({
-      where: { id },
-      relations: ['episodes', 'genres'],
-      order: {
-        episodes: {
-          episodeNo: 'DESC',
-        },
-      },
-    });
+    // QueryBuilder의 leftJoinAndSelect로 명시적 JOIN을 사용해 N+1 쿼리를 방지
+    const webtoon = await this.webtoonRepository
+      .createQueryBuilder('webtoon')
+      .leftJoinAndSelect('webtoon.episodes', 'episode')
+      .leftJoinAndSelect('webtoon.genres', 'genre')
+      .where('webtoon.id = :id', { id })
+      .orderBy('episode.episodeNo', 'DESC')
+      .getOne();
 
     if (!webtoon) {
       throw new NotFoundException('웹툰을 찾을 수 없습니다.');
