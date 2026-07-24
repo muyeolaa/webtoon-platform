@@ -5,6 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Webtoon } from '../entities/webtoon.entity';
 import { AppConfig } from '../entities/config.entity'; // 🚀 1. AppConfig 추가
+import { WebtoonAdapterFactory } from '../adapters/webtoon-adapter.factory';
 
 @Injectable() // (중복된 데코레이터 정리 완료!)
 export class KakaoCrawlerService {
@@ -16,6 +17,7 @@ export class KakaoCrawlerService {
     private readonly webtoonRepository: Repository<Webtoon>,
     @InjectRepository(AppConfig) // 🚀 2. DB 토큰 조회를 위한 레포지토리 주입
     private readonly configRepository: Repository<AppConfig>,
+    private readonly webtoonAdapterFactory: WebtoonAdapterFactory,
   ) {}
 
   async getKakaoWebtoons() {
@@ -36,25 +38,7 @@ export class KakaoCrawlerService {
       12: '📚완결',
     };
 
-    const parsePublishDays = (pubPeriod: string) => {
-      if (!pubPeriod) return ['UNKNOWN'];
-      if (pubPeriod === '완결') return ['FINISHED'];
-
-      const dayMap: Record<string, string> = {
-        월: 'MONDAY',
-        화: 'TUESDAY',
-        수: 'WEDNESDAY',
-        목: 'THURSDAY',
-        금: 'FRIDAY',
-        토: 'SATURDAY',
-        일: 'SUNDAY',
-      };
-
-      return pubPeriod
-        .split(',')
-        .map((d) => dayMap[d.trim()])
-        .filter(Boolean);
-    };
+    const kakaoAdapter = this.webtoonAdapterFactory.getAdapter('kakao');
 
     // 🚀 [NEW] 크롤링 시작 전 DB에서 카카오 쿠키를 한 번만 가져옵니다!
     const cookieConfig = await this.configRepository.findOne({
@@ -101,36 +85,9 @@ export class KakaoCrawlerService {
             break;
           }
 
-          const finalWebtoons = rawWebtoons.map((item: any) => {
-            const imagePath =
-              item.asset_property?.banner_img ||
-              item.asset_property?.banner_set?.main_img ||
-              item.asset_property?.card_set?.background_img ||
-              item.asset_property?.card_img ||
-              item.asset_property?.banner_set?.background_img ||
-              '';
-
-            const fullThumbnailUrl = imagePath
-              ? `https://dn-img-page.kakao.com/download/resource?kid=${imagePath}&filename=th3`
-              : '';
-
-            return {
-              id: `kakao_${item.series_id}`,
-              titleId: item.series_id.toString(),
-              titleName: item.title,
-              searchTitle: item.titleName.replace(/\s+/g, ''),
-              author: item.authors || '작자 미상',
-              thumbnailUrl: fullThumbnailUrl,
-              up: false,
-              rest: item.state === 'ST62',
-              bm: item.is_waitfree || item.business_model !== 'F',
-              publishDays:
-                tabId === 12 ? ['FINISHED'] : parsePublishDays(item.pub_period),
-              isAdult: item.age_grade === 19,
-              starScore: 0,
-              platform: 'kakao',
-            };
-          });
+          const finalWebtoons = rawWebtoons.map((item: any) =>
+            kakaoAdapter.toWebtoonDto(item, { tabId }),
+          );
 
           await this.webtoonRepository.upsert(finalWebtoons, ['id']);
           totalSavedCount += finalWebtoons.length;

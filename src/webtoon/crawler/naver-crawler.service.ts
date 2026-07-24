@@ -1,12 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
-import { WebtoonDto } from '../dto/webtoon.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Webtoon } from '../entities/webtoon.entity';
 import { Repository, IsNull } from 'typeorm';
 import { WebtoonService } from '../webtoon.service';
 import { NaverEpisodeCrawlerService } from './naver-episode-crawler.service';
+import { WebtoonAdapterFactory } from '../adapters/webtoon-adapter.factory';
 
 @Injectable()
 export class NaverCrawlerService {
@@ -18,6 +18,7 @@ export class NaverCrawlerService {
     private readonly webtoonRepository: Repository<Webtoon>,
     private readonly webtoonService: WebtoonService,
     private readonly naverEpisodeCrawler: NaverEpisodeCrawlerService,
+    private readonly webtoonAdapterFactory: WebtoonAdapterFactory,
   ) {}
 
   // =========================================================================
@@ -74,8 +75,9 @@ export class NaverCrawlerService {
       // 2-3. 두 부대의 명단을 하나로 합침
       const combinedList = [...weekdayList, ...dailyPlusList];
 
-      // [3단계] 중복 제거 및 DB 규격으로 깎기
-      const uniqueWebtoonsMap = new Map<number, WebtoonDto>();
+      // [3단계] 중복 제거 및 DB 규격으로 깎기 (어댑터를 통해 표준 DTO로 매핑)
+      const naverAdapter = this.webtoonAdapterFactory.getAdapter('naver');
+      const uniqueWebtoonsMap = new Map<number, ReturnType<typeof naverAdapter.toWebtoonDto>>();
 
       combinedList.forEach((rawWebtoon) => {
         const id = rawWebtoon.titleId;
@@ -89,23 +91,11 @@ export class NaverCrawlerService {
         }
         // [상황 B] 사물함에 없다면 새로 만들어서 넣기
         else {
-          const newWebtoonDto: WebtoonDto = {
-            id: `naver_${rawWebtoon.titleId}`,
-            titleId: String(rawWebtoon.titleId),
-            titleName: rawWebtoon.titleName,
-            searchTitle: rawWebtoon.titleName.replace(/\s+/g, ''),
-            author: rawWebtoon.author,
-            thumbnailUrl: rawWebtoon.thumbnailUrl,
-            isAdult: rawWebtoon.adult === true,
-            up: rawWebtoon.up || false,
-            rest: rawWebtoon.rest || false,
-            bm: rawWebtoon.bm || false,
-            starScore: rawWebtoon.starScore || 0,
-            publishDays: [rawWebtoon.today],
-            platform: 'naver',
-          };
+          const newWebtoonDto = naverAdapter.toWebtoonDto(rawWebtoon, {
+            publishDay: rawWebtoon.today,
+          });
 
-          uniqueWebtoonsMap.set(id, newWebtoonDto as WebtoonDto);
+          uniqueWebtoonsMap.set(id, newWebtoonDto);
         }
       });
 
@@ -279,22 +269,10 @@ export class NaverCrawlerService {
           break;
         }
 
-        const finalWebtoons = rawWebtoons.map((item: any) => {
-          return {
-            id: `naver_${item.titleId}`,
-            titleId: String(item.titleId),
-            titleName: item.titleName,
-            author: item.author,
-            thumbnailUrl: item.thumbnailUrl,
-            isAdult: item.adult === true,
-            up: item.up || false,
-            rest: item.rest || false,
-            bm: item.bm || false,
-            starScore: item.starScore || 0,
-            publishDays: ['FINISHED'],
-            platform: 'naver',
-          };
-        });
+        const naverAdapter = this.webtoonAdapterFactory.getAdapter('naver');
+        const finalWebtoons = rawWebtoons.map((item: any) =>
+          naverAdapter.toWebtoonDto(item, { publishDay: 'FINISHED' }),
+        );
 
         await this.webtoonRepository.upsert(finalWebtoons, ['id']);
         totalSavedCount += finalWebtoons.length;

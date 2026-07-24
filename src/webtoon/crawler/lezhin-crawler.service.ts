@@ -6,6 +6,7 @@ import { firstValueFrom } from 'rxjs';
 import { Webtoon } from '../entities/webtoon.entity';
 import { WebtoonService } from '../webtoon.service';
 import { AppConfig } from '../entities/config.entity';
+import { WebtoonAdapterFactory } from '../adapters/webtoon-adapter.factory';
 
 @Injectable()
 export class LezhinCrawlerService {
@@ -18,6 +19,7 @@ export class LezhinCrawlerService {
     private readonly configRepository: Repository<AppConfig>,
     private readonly httpService: HttpService,
     private readonly webtoonService: WebtoonService,
+    private readonly webtoonAdapterFactory: WebtoonAdapterFactory,
   ) {}
 
   // =========================================================================
@@ -109,49 +111,19 @@ export class LezhinCrawlerService {
           );
           // =====================================================================
 
+          const lezhinAdapter = this.webtoonAdapterFactory.getAdapter('lezhin');
           const webtoonsToSave = webtoonList.map((item: any) => {
-            const authorStr = item.artists
-              ? item.artists.map((a: any) => a.name).join(', ')
-              : '작가미상';
-
             const isCompleted =
               item.contentsState === 'completed' || filter === 'completed';
-
-            const days = isCompleted
-              ? ['FINISHED']
-              : item.schedule?.periods?.map((day: string) =>
-                  this.convertDayToEnglish(day),
-                ) || [];
-
-            const lezhinUpdatedAt = item.updatedAt || new Date().getTime();
-            const fullThumbnailUrl = `https://ccdn.lezhin.com/v2/comics/${item.id}/images/wide.webp?updated=${lezhinUpdatedAt}`;
-
             const webtoonId = `lezhin_${item.id}`;
 
             // 🚀 [핵심] DB에 이미 true(19금)로 저장되어 있다면 무조건 true를 유지!
-            // 그게 아니라면(신작이거나 원래 false였다면) API에서 가져온 기본값을 씁니다.
             const isAlreadyAdultInDB = existingAdultMap.get(webtoonId) === true;
-            const finalIsAdult = isAlreadyAdultInDB
-              ? true
-              : item.isAdult || false;
 
-            return {
-              id: webtoonId,
-              titleId: String(item.id),
-              alias: item.alias,
-              titleName: item.title,
-              searchTitle: item.titleName.replace(/\s+/g, ''),
-              author: authorStr,
-              platform: 'lezhin',
-              thumbnailUrl: fullThumbnailUrl,
-              publishDays: days,
-
-              isAdult: finalIsAdult, // 👈 방어막이 쳐진 최종 19금 판별값 적용!
-
-              up: item.badges
-                ? String(item.badges).toLowerCase().includes('up')
-                : false,
-            };
+            return lezhinAdapter.toWebtoonDto(item, {
+              isCompleted,
+              isAlreadyAdultInDB,
+            });
           });
 
           await this.webtoonRepository.upsert(webtoonsToSave, {
@@ -185,22 +157,5 @@ export class LezhinCrawlerService {
       }
       return false;
     }
-  }
-
-  private convertDayToEnglish(day: string): string {
-    const daysMap: Record<string, string> = {
-      MON: 'MONDAY',
-      TUE: 'TUESDAY',
-      WED: 'WEDNESDAY',
-      THU: 'THURSDAY',
-      FRI: 'FRIDAY',
-      SAT: 'SATURDAY',
-      SUN: 'SUNDAY',
-      DAY_10: 'TEN_DAYS',
-      '10N': 'TEN_DAYS',
-      '10D': 'TEN_DAYS',
-      '10': 'TEN_DAYS',
-    };
-    return daysMap[day?.toUpperCase()] || 'UNKNOWN';
   }
 }
