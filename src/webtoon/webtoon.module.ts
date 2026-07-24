@@ -23,6 +23,12 @@ import { AppConfig } from './entities/config.entity';
 
 import { ViewHistory } from './entities/view-history.entity';
 import { JwtModule } from '@nestjs/jwt';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { OptionalAuthGuard } from './guards/optional-auth.guard';
+import { WebtoonAdapterFactory } from './adapters/webtoon-adapter.factory';
+import { NaverWebtoonAdapter } from './adapters/naver-webtoon.adapter';
+import { KakaoWebtoonAdapter } from './adapters/kakao-webtoon.adapter';
+import { LezhinWebtoonAdapter } from './adapters/lezhin-webtoon.adapter';
 
 @Module({
   imports: [
@@ -36,8 +42,12 @@ import { JwtModule } from '@nestjs/jwt';
       ViewHistory,
       AppConfig,
     ]),
-    JwtModule.register({
-      secret: '여기에_실제_JWT_시크릿_키_입력', // Auth 환경변수(process.env.JWT_SECRET)를 넣어주면 가장 좋아요!
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_SECRET'),
+      }),
     }),
   ],
   controllers: [WebtoonController, RatingController, BookmarkController],
@@ -53,6 +63,11 @@ import { JwtModule } from '@nestjs/jwt';
     LezhinEpisodeCrawlerService,
     BookmarkService,
     RatingService,
+    OptionalAuthGuard,
+    WebtoonAdapterFactory,
+    NaverWebtoonAdapter,
+    KakaoWebtoonAdapter,
+    LezhinWebtoonAdapter,
   ],
   exports: [NaverCrawlerService, KakaoCrawlerService],
 })

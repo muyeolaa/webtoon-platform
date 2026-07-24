@@ -8,7 +8,6 @@ import {
   Req,
   Res,
   UseGuards,
-  Headers,
 } from '@nestjs/common';
 import { NaverCrawlerService } from './crawler/naver-crawler.service';
 import { KakaoCrawlerService } from './crawler/kakao-crawler.service';
@@ -19,8 +18,8 @@ import { KakaoEpisodeCrawlerService } from './crawler/kakao-episode-crawler.serv
 import { LezhinCrawlerService } from './crawler/lezhin-crawler.service';
 import { LezhinEpisodeCrawlerService } from './crawler/lezhin-episode-crawler.service';
 import type { Response } from 'express';
-import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
-import { JwtService } from '@nestjs/jwt';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { OptionalAuthGuard } from './guards/optional-auth.guard';
 
 @Controller('webtoon') // 주소 앞에 /webtoon 이 붙습니다.
 export class WebtoonController {
@@ -33,7 +32,6 @@ export class WebtoonController {
     private readonly kakaoEpisodeCrawler: KakaoEpisodeCrawlerService,
     private readonly lezhinService: LezhinCrawlerService,
     private readonly lezhinEpisodeService: LezhinEpisodeCrawlerService,
-    private readonly jwtService: JwtService,
   ) {}
 
   @Get('naver') // 접속 주소: GET /webtoon/naver
@@ -50,6 +48,7 @@ export class WebtoonController {
     return await this.lezhinService.getLezhinWebtoons();
   }
 
+  @UseGuards(OptionalAuthGuard)
   @Get('list')
   async getList(
     @Query('page') page: string,
@@ -58,27 +57,15 @@ export class WebtoonController {
     @Query('day') day?: string,
     @Query('sort') sort?: string,
     @Query('search') search?: string,
-    @Headers('authorization') authHeader?: string,
+    @Req() req?: any,
   ) {
     const pageNum = Number(page) || 1;
     const limitNum = Number(limit) || 21;
 
-    let isAdultFlag = 'false';
-
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.split(' ')[1];
-      try {
-        // 🚀 1. 단순히 verify(token)만 하지 않고, 명시적으로 시크릿 키를 넣어줍니다.
-        // (주의: 네 프로젝트의 .env 파일에 있는 JWT 시크릿 키 이름이 JWT_SECRET이 맞는지 확인해 줘!)
-        const decoded = this.jwtService.verify(token, {
-          secret: process.env.JWT_SECRET,
-        });
-
-        if (decoded && (decoded.sub || decoded.id)) {
-          isAdultFlag = 'true';
-        }
-      } catch (error) {}
-    }
+    // OptionalAuthGuard가 토큰 검증을 마치고 req.user를 채워준 뒤이므로,
+    // 로그인 상태(유효한 토큰 보유)일 때만 성인물 노출을 허용한다.
+    const decoded = req?.user;
+    const isAdultFlag = decoded && (decoded.sub || decoded.id) ? 'true' : 'false';
 
     return await this.webtoonService.getPaginatedWebtoons(
       pageNum,
@@ -194,22 +181,13 @@ export class WebtoonController {
     return await this.webtoonService.getSitemapData();
   }
 
+  @UseGuards(OptionalAuthGuard)
   @Get(':id/recommendations')
-  async getRecommendations(
-    @Param('id') id: string,
-    @Headers('authorization') authHeader?: string,
-  ) {
-    let userId: number | undefined = undefined;
-
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.split(' ')[1];
-      try {
-        const decoded = this.jwtService.verify(token);
-
-        // 🚀 [핵심 수정] 여기도 sub를 우선으로 꺼내도록 변경!
-        userId = decoded.sub || decoded.id;
-      } catch (error) {}
-    }
+  async getRecommendations(@Param('id') id: string, @Req() req?: any) {
+    const decoded = req?.user;
+    const userId: number | undefined = decoded
+      ? decoded.sub || decoded.id
+      : undefined;
 
     return this.webtoonService.getRecommendedWebtoons(id, userId, 5);
   }
