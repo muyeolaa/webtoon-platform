@@ -208,7 +208,7 @@ export class WebtoonService {
     await this.webtoonRepository.increment({ id }, 'viewCount', 1);
 
     // 2. 웹툰 상세 데이터 및 연관 데이터(에피소드, 장르) 조회
-    // QueryBuilder의 leftJoinAndSelect로 명시적 JOIN을 사용해 N+1 쿼리를 방지
+    // findOne({ relations }) 대신 leftJoinAndSelect로 명시적 JOIN해서 N+1 쿼리 방지
     const webtoon = await this.webtoonRepository
       .createQueryBuilder('webtoon')
       .leftJoinAndSelect('webtoon.episodes', 'episode')

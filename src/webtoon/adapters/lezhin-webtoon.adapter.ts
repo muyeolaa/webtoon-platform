@@ -55,7 +55,8 @@ export class LezhinWebtoonAdapter
       titleId: String(raw.id),
       alias: raw.alias,
       titleName: raw.title,
-      searchTitle: raw.titleName.replace(/\s+/g, ''),
+      // raw.titleName도 존재하지 않는 필드라 항상 undefined였음 - raw.title로 수정
+      searchTitle: raw.title.replace(/\s+/g, ''),
       author,
       thumbnailUrl,
       publishDays,

@@ -38,7 +38,9 @@ export class WebtoonSchedulerService {
   ) {}
 
   /**
-   * 매일 새벽 3시에 자동 실행 (한국 시간 기준)
+   * 매일 밤 23:30(KST) 실행. 네이버 → 카카오 → 레진 순으로 플랫폼별 수집을 끝낸 뒤
+   * 마지막에 syncAllRankings()를 호출한다 - 랭킹이 조회수/북마크/별점을 기준으로 하므로
+   * 최신 데이터가 다 반영된 다음에 계산해야 순위가 정확하다.
    */
   @Cron('30 23 * * *', { timeZone: 'Asia/Seoul' })
   async handleDailyCrawling() {
@@ -122,7 +124,9 @@ export class WebtoonSchedulerService {
         const realUserSum = Number(ratingResult.sum || 0);
         const realUserCount = Number(ratingResult.count || 0);
 
-        // 3. 가상 유저 100명 공식 적용 (최종 평점)
+        // 3. 가상 유저 100명 공식 (베이지안 평균 방식) - 평가자 1~2명짜리 신작이
+        // 별점 5점 받고 바로 랭킹 최상단에 뜨는 왜곡을 막기 위해 크롤링 시점 starScore를
+        // "가상 유저 100명 점수"로 가정해 합산한다. 실제 평가자가 늘수록 영향력은 자연히 줄어든다.
         const VIRTUAL_USER_COUNT = 100;
         const virtualSum = Number(webtoon.starScore) * VIRTUAL_USER_COUNT;
         const finalAverage =

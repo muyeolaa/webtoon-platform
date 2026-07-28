@@ -3,6 +3,7 @@ import {
   Injectable,
   ForbiddenException,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -37,28 +38,18 @@ export class BoardService {
 
   // 2. 게시글 목록 보기
   async getPosts(category: string, user?: any) {
-    if (category === 'NOTICE') {
-      return await this.boardRepository.find({
-        where: { category: 'NOTICE' },
-        order: { createdAt: 'DESC' },
-        relations: ['author'],
-        select: {
-          author: { id: true, nickname: true },
-        },
-      });
+    if (category !== 'NOTICE' && category !== 'BUG') {
+      throw new BadRequestException('지원하지 않는 카테고리입니다.');
     }
 
-    if (category === 'BUG') {
-      // 🚀 이전 단계 수정 반영: 다른 사람의 버그 글도 리스트에는 보이도록 필터 제거
-      return await this.boardRepository.find({
-        where: { category: 'BUG' },
-        order: { createdAt: 'DESC' },
-        relations: ['author'],
-        select: {
-          author: { id: true, nickname: true },
-        },
-      });
-    }
+    return await this.boardRepository.find({
+      where: { category },
+      order: { createdAt: 'DESC' },
+      relations: ['author'],
+      select: {
+        author: { id: true, nickname: true },
+      },
+    });
   }
 
   // 3. 게시글 상세 보기 (권한 체크)

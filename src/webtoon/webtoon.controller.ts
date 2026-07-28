@@ -48,6 +48,7 @@ export class WebtoonController {
     return await this.lezhinService.getLezhinWebtoons();
   }
 
+  // 비로그인도 목록 조회는 가능해야 해서 필수 인증인 JwtAuthGuard 대신 OptionalAuthGuard 사용
   @UseGuards(OptionalAuthGuard)
   @Get('list')
   async getList(
