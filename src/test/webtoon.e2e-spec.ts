@@ -11,29 +11,29 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 
-import { WebtoonController } from '../src/webtoon/webtoon.controller';
-import { BookmarkController } from '../src/webtoon/bookmark/bookmark.controller';
-import { WebtoonService } from '../src/webtoon/webtoon.service';
-import { BookmarkService } from '../src/webtoon/bookmark/bookmark.service';
-import { OptionalAuthGuard } from '../src/webtoon/guards/optional-auth.guard';
-import { JwtAuthGuard } from '../src/auth/jwt-auth.guard';
-import { JwtStrategy } from '../src/auth/jwt.strategy';
-import { NaverCrawlerService } from '../src/webtoon/crawler/naver-crawler.service';
-import { KakaoCrawlerService } from '../src/webtoon/crawler/kakao-crawler.service';
-import { NaverEpisodeCrawlerService } from '../src/webtoon/crawler/naver-episode-crawler.service';
-import { WebtoonSchedulerService } from '../src/webtoon/crawler/webtoon-scheduler.service';
-import { KakaoEpisodeCrawlerService } from '../src/webtoon/crawler/kakao-episode-crawler.service';
-import { LezhinCrawlerService } from '../src/webtoon/crawler/lezhin-crawler.service';
-import { LezhinEpisodeCrawlerService } from '../src/webtoon/crawler/lezhin-episode-crawler.service';
-import { Webtoon } from '../src/webtoon/entities/webtoon.entity';
-import { Episode } from '../src/webtoon/entities/episode.entity';
-import { Genre } from '../src/webtoon/entities/genre.entity';
-import { Bookmark } from '../src/webtoon/entities/bookmark.entity';
-import { Rating } from '../src/webtoon/entities/rating.entity';
-import { ViewHistory } from '../src/webtoon/entities/view-history.entity';
-import { User } from '../src/user/entity/user.entity';
-import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter';
-import { TransformInterceptor } from '../src/common/interceptors/transform.interceptor';
+import { WebtoonController } from '../webtoon/webtoon.controller';
+import { BookmarkController } from '../webtoon/bookmark/bookmark.controller';
+import { WebtoonService } from '../webtoon/webtoon.service';
+import { BookmarkService } from '../webtoon/bookmark/bookmark.service';
+import { OptionalAuthGuard } from '../webtoon/guards/optional-auth.guard';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { JwtStrategy } from '../auth/jwt.strategy';
+import { NaverCrawlerService } from '../webtoon/crawler/naver-crawler.service';
+import { KakaoCrawlerService } from '../webtoon/crawler/kakao-crawler.service';
+import { NaverEpisodeCrawlerService } from '../webtoon/crawler/naver-episode-crawler.service';
+import { WebtoonSchedulerService } from '../webtoon/crawler/webtoon-scheduler.service';
+import { KakaoEpisodeCrawlerService } from '../webtoon/crawler/kakao-episode-crawler.service';
+import { LezhinCrawlerService } from '../webtoon/crawler/lezhin-crawler.service';
+import { LezhinEpisodeCrawlerService } from '../webtoon/crawler/lezhin-episode-crawler.service';
+import { Webtoon } from '../webtoon/entities/webtoon.entity';
+import { Episode } from '../webtoon/entities/episode.entity';
+import { Genre } from '../webtoon/entities/genre.entity';
+import { Bookmark } from '../webtoon/entities/bookmark.entity';
+import { Rating } from '../webtoon/entities/rating.entity';
+import { ViewHistory } from '../webtoon/entities/view-history.entity';
+import { User } from '../user/entity/user.entity';
+import { AllExceptionsFilter } from '../common/filters/all-exceptions.filter';
+import { TransformInterceptor } from '../common/interceptors/transform.interceptor';
 
 const JWT_SECRET = 'e2e-test-secret';
 
@@ -53,7 +53,10 @@ function makeFakeRepo(seed: any[] = []) {
   return {
     rows,
     find: jest.fn(async () => rows),
-    findOne: jest.fn(async (opts: any) => rows.find((r) => matchesWhere(r, opts?.where)) ?? null),
+    findOne: jest.fn(
+      async (opts: any) =>
+        rows.find((r) => matchesWhere(r, opts?.where)) ?? null,
+    ),
     create: jest.fn((entity: any) => entity),
     save: jest.fn(async (entity: any) => {
       rows.push(entity);
@@ -88,7 +91,12 @@ describe('Webtoon API (e2e)', () => {
   let app: INestApplication<App>;
   let jwtService: JwtService;
 
-  const testUser = { id: 1, email: 'tester@example.com', nickname: 'tester', role: 'user' };
+  const testUser = {
+    id: 1,
+    email: 'tester@example.com',
+    nickname: 'tester',
+    role: 'user',
+  };
   const testWebtoon = {
     id: 'naver_1',
     titleId: '1',
@@ -124,13 +132,22 @@ describe('Webtoon API (e2e)', () => {
         OptionalAuthGuard,
         JwtAuthGuard,
         JwtStrategy,
-        { provide: ConfigService, useValue: { get: (key: string) => (key === 'JWT_SECRET' ? JWT_SECRET : undefined) } },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: (key: string) =>
+              key === 'JWT_SECRET' ? JWT_SECRET : undefined,
+          },
+        },
         { provide: getRepositoryToken(Webtoon), useValue: webtoonRepo },
         { provide: getRepositoryToken(Episode), useValue: makeFakeRepo([]) },
         { provide: getRepositoryToken(Genre), useValue: makeFakeRepo([]) },
         { provide: getRepositoryToken(Bookmark), useValue: bookmarkRepo },
         { provide: getRepositoryToken(Rating), useValue: makeFakeRepo([]) },
-        { provide: getRepositoryToken(ViewHistory), useValue: makeFakeRepo([]) },
+        {
+          provide: getRepositoryToken(ViewHistory),
+          useValue: makeFakeRepo([]),
+        },
         { provide: getRepositoryToken(User), useValue: userRepo },
         // 목록 조회 API에는 필요 없는 크롤러 의존성들은 빈 객체로 대체
         { provide: NaverCrawlerService, useValue: {} },
@@ -144,7 +161,9 @@ describe('Webtoon API (e2e)', () => {
     }).compile();
 
     app = moduleBuilder.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     app.useGlobalFilters(new AllExceptionsFilter());
     app.useGlobalInterceptors(new TransformInterceptor());
     await app.init();
@@ -162,7 +181,10 @@ describe('Webtoon API (e2e)', () => {
       .expect(200);
 
     expect(res.body).toMatchObject({ statusCode: 200, message: 'success' });
-    expect(res.body.data.data[0]).toMatchObject({ id: 'naver_1', platform: 'naver' });
+    expect(res.body.data.data[0]).toMatchObject({
+      id: 'naver_1',
+      platform: 'naver',
+    });
   });
 
   it('로그인 없이 북마크를 시도하면 401을 반환한다', async () => {
