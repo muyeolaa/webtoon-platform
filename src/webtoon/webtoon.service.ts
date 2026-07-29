@@ -1,10 +1,11 @@
 // src/webtoon/webtoon.service.ts
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, ArrayContains, ILike } from 'typeorm';
+import { Repository, ArrayContains, ILike, Brackets } from 'typeorm';
 import { Webtoon } from './entities/webtoon.entity';
 import { Genre } from './entities/genre.entity';
 import { Episode } from './entities/episode.entity';
+import { GENRE_GROUPS } from './constants/genre-whitelist';
 
 // 🚀 1. 방금 모듈에 등록하기로 한 북마크, 별점 엔티티 불러오기!
 import { Bookmark } from './entities/bookmark.entity';
@@ -71,6 +72,7 @@ export class WebtoonService {
     sort?: string,
     search?: string,
     isAdult?: string,
+    genre?: string,
   ) {
     const skip = (page - 1) * limit;
 
@@ -134,7 +136,31 @@ export class WebtoonService {
       }
     }
 
-    // 4. 다이나믹 정렬 적용
+    // 4. 장르 필터링
+    // GENRE_WHITELIST 항목 그대로 매칭하면 안 되고, GENRE_GROUPS[선택한_장르]에 묶인
+    // 실제 DB 태그들과 포함(substring) 매치해야 한다 (genre-whitelist.ts 주석 참고).
+    if (genre && GENRE_GROUPS[genre]) {
+      const keywords = GENRE_GROUPS[genre];
+      const matchingWebtoonIds = this.webtoonRepository
+        .createQueryBuilder('w')
+        .select('w.id')
+        .innerJoin('w.genres', 'g')
+        .where(
+          new Brackets((qb2) => {
+            keywords.forEach((keyword, i) => {
+              qb2.orWhere(`g.name ILIKE :genreKeyword${i}`, {
+                [`genreKeyword${i}`]: `%${keyword}%`,
+              });
+            });
+          }),
+        );
+
+      qb.andWhere(
+        `webtoon.id IN (${matchingWebtoonIds.getQuery()})`,
+      ).setParameters(matchingWebtoonIds.getParameters());
+    }
+
+    // 5. 다이나믹 정렬 적용
     if (sort === '조회순') {
       qb.orderBy('webtoon.viewCount', 'DESC').addOrderBy('webtoon.id', 'DESC');
     } else if (sort === '업데이트순' || sort === '최신순') {
@@ -162,13 +188,13 @@ export class WebtoonService {
       qb.orderBy('webtoon.id', 'ASC');
     }
 
-    // 5. 데이터 가져오기
+    // 6. 데이터 가져오기
     const [webtoons, totalCount] = await qb
       .skip(skip)
       .take(limit)
       .getManyAndCount();
 
-    // 6. 데이터 가공
+    // 7. 데이터 가공
     const processedWebtoons = webtoons.map((webtoon) => {
       const virtualCount = 100;
       const validStarScore =

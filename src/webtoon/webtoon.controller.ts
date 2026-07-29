@@ -58,6 +58,7 @@ export class WebtoonController {
     @Query('day') day?: string,
     @Query('sort') sort?: string,
     @Query('search') search?: string,
+    @Query('genre') genre?: string,
     @Req() req?: any,
   ) {
     const pageNum = Number(page) || 1;
@@ -76,6 +77,7 @@ export class WebtoonController {
       sort,
       search,
       isAdultFlag,
+      genre,
     );
   }
 
