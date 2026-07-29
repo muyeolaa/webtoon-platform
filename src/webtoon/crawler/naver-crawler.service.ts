@@ -77,7 +77,10 @@ export class NaverCrawlerService {
 
       // [3단계] 중복 제거 및 DB 규격으로 깎기 (어댑터를 통해 표준 DTO로 매핑)
       const naverAdapter = this.webtoonAdapterFactory.getAdapter('naver');
-      const uniqueWebtoonsMap = new Map<number, ReturnType<typeof naverAdapter.toWebtoonDto>>();
+      const uniqueWebtoonsMap = new Map<
+        number,
+        ReturnType<typeof naverAdapter.toWebtoonDto>
+      >();
 
       combinedList.forEach((rawWebtoon) => {
         const id = rawWebtoon.titleId;
