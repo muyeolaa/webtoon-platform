@@ -1,7 +1,7 @@
 // src/webtoon/webtoon.service.ts
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, ArrayContains, ILike, Brackets } from 'typeorm';
+import { Repository, ArrayContains, ILike, Brackets, SelectQueryBuilder } from 'typeorm';
 import { Webtoon } from './entities/webtoon.entity';
 import { Genre } from './entities/genre.entity';
 import { Episode } from './entities/episode.entity';
@@ -137,28 +137,7 @@ export class WebtoonService {
     }
 
     // 4. 장르 필터링
-    // GENRE_WHITELIST 항목 그대로 매칭하면 안 되고, GENRE_GROUPS[선택한_장르]에 묶인
-    // 실제 DB 태그들과 포함(substring) 매치해야 한다 (genre-whitelist.ts 주석 참고).
-    if (genre && GENRE_GROUPS[genre]) {
-      const keywords = GENRE_GROUPS[genre];
-      const matchingWebtoonIds = this.webtoonRepository
-        .createQueryBuilder('w')
-        .select('w.id')
-        .innerJoin('w.genres', 'g')
-        .where(
-          new Brackets((qb2) => {
-            keywords.forEach((keyword, i) => {
-              qb2.orWhere(`g.name ILIKE :genreKeyword${i}`, {
-                [`genreKeyword${i}`]: `%${keyword}%`,
-              });
-            });
-          }),
-        );
-
-      qb.andWhere(
-        `webtoon.id IN (${matchingWebtoonIds.getQuery()})`,
-      ).setParameters(matchingWebtoonIds.getParameters());
-    }
+    this.applyGenreFilter(qb, genre);
 
     // 5. 다이나믹 정렬 적용
     if (sort === '조회순') {
@@ -571,28 +550,7 @@ export class WebtoonService {
       qb.andWhere('webtoon.isAdult = :isAdultFlag', { isAdultFlag: false });
     }
 
-    // GENRE_GROUPS[선택한_장르] 키워드 배열 전체와 포함(substring) 매치 —
-    // getPaginatedWebtoons의 장르 필터링 로직과 동일해야 리스트 필터 결과와 정합성이 맞는다.
-    if (genre && GENRE_GROUPS[genre]) {
-      const keywords = GENRE_GROUPS[genre];
-      const matchingWebtoonIds = this.webtoonRepository
-        .createQueryBuilder('w')
-        .select('w.id')
-        .innerJoin('w.genres', 'g')
-        .where(
-          new Brackets((qb2) => {
-            keywords.forEach((keyword, i) => {
-              qb2.orWhere(`g.name ILIKE :genreKeyword${i}`, {
-                [`genreKeyword${i}`]: `%${keyword}%`,
-              });
-            });
-          }),
-        );
-
-      qb.andWhere(
-        `webtoon.id IN (${matchingWebtoonIds.getQuery()})`,
-      ).setParameters(matchingWebtoonIds.getParameters());
-    }
+    this.applyGenreFilter(qb, genre);
 
     const candidates = await qb
       .orderBy('webtoon.trendingScore', 'DESC')
@@ -607,6 +565,33 @@ export class WebtoonService {
     const picked = shuffled.slice(0, 10);
 
     return picked.map((webtoon) => this.formatWebtoonCard(webtoon));
+  }
+
+  // GENRE_GROUPS 기반 장르 필터링 헬퍼 (getPaginatedWebtoons, getHomepageRecommendations 공용)
+  private applyGenreFilter(
+    qb: SelectQueryBuilder<Webtoon>,
+    genre?: string,
+  ): void {
+    if (!genre || !GENRE_GROUPS[genre]) return;
+
+    const keywords = GENRE_GROUPS[genre];
+    const matchingWebtoonIds = this.webtoonRepository
+      .createQueryBuilder('w')
+      .select('w.id')
+      .innerJoin('w.genres', 'g')
+      .where(
+        new Brackets((qb2) => {
+          keywords.forEach((keyword, i) => {
+            qb2.orWhere(`g.name ILIKE :genreKeyword${i}`, {
+              [`genreKeyword${i}`]: `%${keyword}%`,
+            });
+          });
+        }),
+      );
+
+    qb.andWhere(
+      `webtoon.id IN (${matchingWebtoonIds.getQuery()})`,
+    ).setParameters(matchingWebtoonIds.getParameters());
   }
 
   // 메인 리스트 카드와 동일한 별점 가중치 공식 (getPaginatedWebtoons, getHomepageRecommendations 공용)
