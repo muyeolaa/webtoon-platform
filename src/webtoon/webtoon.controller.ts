@@ -185,6 +185,24 @@ export class WebtoonController {
   }
 
   @UseGuards(OptionalAuthGuard)
+  @Get('homepage-recommendations')
+  async getHomepageRecommendations(
+    @Query('genre') genre?: string,
+    @Req() req?: any,
+  ) {
+    // OptionalAuthGuard가 채운 req.user로 서버가 직접 성인 노출 여부를 판단한다.
+    // getList와 동일한 규칙 — 클라이언트가 보낸 isAdult 쿼리 파라미터는 신뢰하지 않는다.
+    const decoded = req?.user;
+    const isAdultFlag =
+      decoded && (decoded.sub || decoded.id) ? 'true' : 'false';
+
+    return await this.webtoonService.getHomepageRecommendations(
+      genre,
+      isAdultFlag,
+    );
+  }
+
+  @UseGuards(OptionalAuthGuard)
   @Get(':id/recommendations')
   async getRecommendations(@Param('id') id: string, @Req() req?: any) {
     const decoded = req?.user;
