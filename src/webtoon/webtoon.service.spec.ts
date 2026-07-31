@@ -127,6 +127,29 @@ describe('WebtoonService', () => {
       );
     });
 
+    // 🚨 회귀 테스트: GENRE_GROUPS가 Object.prototype을 상속하는 일반 객체 리터럴이므로
+    // 'constructor', 'toString', '__proto__' 같은 프로토타입 상속 프로퍼티에 대해
+    // 단순 truthy 체크(!GENRE_GROUPS[genre])는 뚫려서 keywords.forEach가 TypeError로 터진다.
+    // Object.prototype.hasOwnProperty로 own-key만 걸러야 한다.
+    it.each([
+      'constructor',
+      'toString',
+      '__proto__',
+      'hasOwnProperty',
+      'valueOf',
+    ])(
+      "genre='%s'(프로토타입 상속 프로퍼티)가 오면 에러 없이 장르 서브쿼리를 추가하지 않는다",
+      async (genre) => {
+        qbMock.getMany.mockResolvedValue([]);
+
+        await expect(
+          service.getHomepageRecommendations(genre),
+        ).resolves.toEqual([]);
+
+        expect(qbMock.where).not.toHaveBeenCalled();
+      },
+    );
+
     it('응답 카드는 getPaginatedWebtoons와 동일한 starScore 가중치 공식을 사용한다', async () => {
       const candidates = [
         makeWebtoon('1', {

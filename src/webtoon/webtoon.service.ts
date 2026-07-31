@@ -1,7 +1,13 @@
 // src/webtoon/webtoon.service.ts
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, ArrayContains, ILike, Brackets, SelectQueryBuilder } from 'typeorm';
+import {
+  Repository,
+  ArrayContains,
+  ILike,
+  Brackets,
+  SelectQueryBuilder,
+} from 'typeorm';
 import { Webtoon } from './entities/webtoon.entity';
 import { Genre } from './entities/genre.entity';
 import { Episode } from './entities/episode.entity';
@@ -572,7 +578,9 @@ export class WebtoonService {
     qb: SelectQueryBuilder<Webtoon>,
     genre?: string,
   ): void {
-    if (!genre || !GENRE_GROUPS[genre]) return;
+    if (!genre || !Object.prototype.hasOwnProperty.call(GENRE_GROUPS, genre)) {
+      return;
+    }
 
     const keywords = GENRE_GROUPS[genre];
     const matchingWebtoonIds = this.webtoonRepository
