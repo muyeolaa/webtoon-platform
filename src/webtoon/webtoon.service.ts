@@ -195,24 +195,9 @@ export class WebtoonService {
       .getManyAndCount();
 
     // 7. 데이터 가공
-    const processedWebtoons = webtoons.map((webtoon) => {
-      const virtualCount = 100;
-      const validStarScore =
-        webtoon.starScore && webtoon.starScore > 0 ? webtoon.starScore : 9.5;
-
-      const externalTotalScore = validStarScore * virtualCount;
-      const internalTotalScore =
-        (webtoon.starRating || 0) * (webtoon.starRatingCount || 0);
-      const totalCountForRating = virtualCount + (webtoon.starRatingCount || 0);
-      const calculatedRating =
-        (externalTotalScore + internalTotalScore) / totalCountForRating;
-
-      return {
-        ...webtoon,
-        starScore: Number(calculatedRating.toFixed(2)),
-        totalRatingCount: totalCountForRating,
-      };
-    });
+    const processedWebtoons = webtoons.map((webtoon) =>
+      this.formatWebtoonCard(webtoon),
+    );
 
     return {
       data: processedWebtoons,
@@ -574,6 +559,74 @@ export class WebtoonService {
 
     // 5. 섞인 배열에서 최종적으로 원하는 개수(limit)만큼 잘라서 리턴!
     return shuffled.slice(0, limit);
+  }
+
+  // =========================================================================
+  // 🚀 홈페이지 추천 캐러셀: 인기순 후보군을 셔플해서 10개 반환
+  // =========================================================================
+  async getHomepageRecommendations(genre?: string, isAdultFlag?: string) {
+    const qb = this.webtoonRepository.createQueryBuilder('webtoon');
+
+    if (isAdultFlag === 'false') {
+      qb.andWhere('webtoon.isAdult = :isAdultFlag', { isAdultFlag: false });
+    }
+
+    // GENRE_GROUPS[선택한_장르] 키워드 배열 전체와 포함(substring) 매치 —
+    // getPaginatedWebtoons의 장르 필터링 로직과 동일해야 리스트 필터 결과와 정합성이 맞는다.
+    if (genre && GENRE_GROUPS[genre]) {
+      const keywords = GENRE_GROUPS[genre];
+      const matchingWebtoonIds = this.webtoonRepository
+        .createQueryBuilder('w')
+        .select('w.id')
+        .innerJoin('w.genres', 'g')
+        .where(
+          new Brackets((qb2) => {
+            keywords.forEach((keyword, i) => {
+              qb2.orWhere(`g.name ILIKE :genreKeyword${i}`, {
+                [`genreKeyword${i}`]: `%${keyword}%`,
+              });
+            });
+          }),
+        );
+
+      qb.andWhere(
+        `webtoon.id IN (${matchingWebtoonIds.getQuery()})`,
+      ).setParameters(matchingWebtoonIds.getParameters());
+    }
+
+    const candidates = await qb
+      .orderBy('webtoon.trendingScore', 'DESC')
+      .addOrderBy('webtoon.viewCount', 'DESC')
+      .take(40)
+      .getMany();
+
+    if (candidates.length === 0) return [];
+
+    // Node.js 메모리에서 배열 셔플 (getRecommendedWebtoons와 동일 패턴)
+    const shuffled = candidates.sort(() => 0.5 - Math.random());
+    const picked = shuffled.slice(0, 10);
+
+    return picked.map((webtoon) => this.formatWebtoonCard(webtoon));
+  }
+
+  // 메인 리스트 카드와 동일한 별점 가중치 공식 (getPaginatedWebtoons, getHomepageRecommendations 공용)
+  private formatWebtoonCard(webtoon: Webtoon) {
+    const virtualCount = 100;
+    const validStarScore =
+      webtoon.starScore && webtoon.starScore > 0 ? webtoon.starScore : 9.5;
+
+    const externalTotalScore = validStarScore * virtualCount;
+    const internalTotalScore =
+      (webtoon.starRating || 0) * (webtoon.starRatingCount || 0);
+    const totalCountForRating = virtualCount + (webtoon.starRatingCount || 0);
+    const calculatedRating =
+      (externalTotalScore + internalTotalScore) / totalCountForRating;
+
+    return {
+      ...webtoon,
+      starScore: Number(calculatedRating.toFixed(2)),
+      totalRatingCount: totalCountForRating,
+    };
   }
 
   async getSitemapData() {
