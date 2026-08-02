@@ -1,6 +1,6 @@
 // src/webtoon/adapters/kakao-webtoon.adapter.ts
 import { Injectable } from '@nestjs/common';
-import { CreateWebtoonDto } from '../dto/webtoon.dto';
+import { CreateWebtoonDto, toValidatedWebtoonDto } from '../dto/webtoon.dto';
 import { WebtoonSourceAdapter } from './webtoon-source.adapter';
 
 interface KakaoContext {
@@ -8,9 +8,10 @@ interface KakaoContext {
 }
 
 @Injectable()
-export class KakaoWebtoonAdapter
-  implements WebtoonSourceAdapter<any, KakaoContext>
-{
+export class KakaoWebtoonAdapter implements WebtoonSourceAdapter<
+  any,
+  KakaoContext
+> {
   readonly platform = 'kakao';
 
   // 카카오만 요일을 '월,화' 같은 한글로 내려줘서 다른 플랫폼과 포맷을 맞추려면 이 매핑이 필요함
@@ -48,7 +49,7 @@ export class KakaoWebtoonAdapter
       ? `https://dn-img-page.kakao.com/download/resource?kid=${imagePath}&filename=th3`
       : '';
 
-    return {
+    return toValidatedWebtoonDto({
       id: `kakao_${raw.series_id}`,
       titleId: raw.series_id.toString(),
       titleName: raw.title,
@@ -61,10 +62,12 @@ export class KakaoWebtoonAdapter
       bm: raw.is_waitfree || raw.business_model !== 'F',
       // 완결 탭(tabId 12)은 pub_period가 비어있거나 부정확할 수 있어 무조건 FINISHED로 고정
       publishDays:
-        context.tabId === 12 ? ['FINISHED'] : this.parsePublishDays(raw.pub_period),
+        context.tabId === 12
+          ? ['FINISHED']
+          : this.parsePublishDays(raw.pub_period),
       isAdult: raw.age_grade === 19,
       starScore: 0,
       platform: this.platform,
-    };
+    });
   }
 }

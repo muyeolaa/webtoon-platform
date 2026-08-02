@@ -1,6 +1,6 @@
 // src/webtoon/adapters/naver-webtoon.adapter.ts
 import { Injectable } from '@nestjs/common';
-import { CreateWebtoonDto } from '../dto/webtoon.dto';
+import { CreateWebtoonDto, toValidatedWebtoonDto } from '../dto/webtoon.dto';
 import { WebtoonSourceAdapter } from './webtoon-source.adapter';
 
 interface NaverContext {
@@ -9,13 +9,14 @@ interface NaverContext {
 }
 
 @Injectable()
-export class NaverWebtoonAdapter
-  implements WebtoonSourceAdapter<any, NaverContext>
-{
+export class NaverWebtoonAdapter implements WebtoonSourceAdapter<
+  any,
+  NaverContext
+> {
   readonly platform = 'naver';
 
   toWebtoonDto(raw: any, context: NaverContext): CreateWebtoonDto {
-    return {
+    return toValidatedWebtoonDto({
       id: `naver_${raw.titleId}`,
       titleId: String(raw.titleId),
       titleName: raw.titleName,
@@ -29,6 +30,6 @@ export class NaverWebtoonAdapter
       starScore: raw.starScore || 0,
       publishDays: [context.publishDay],
       platform: this.platform,
-    };
+    });
   }
 }

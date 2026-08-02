@@ -1,6 +1,6 @@
 // src/webtoon/adapters/lezhin-webtoon.adapter.ts
 import { Injectable } from '@nestjs/common';
-import { CreateWebtoonDto } from '../dto/webtoon.dto';
+import { CreateWebtoonDto, toValidatedWebtoonDto } from '../dto/webtoon.dto';
 import { WebtoonSourceAdapter } from './webtoon-source.adapter';
 
 interface LezhinContext {
@@ -10,9 +10,10 @@ interface LezhinContext {
 }
 
 @Injectable()
-export class LezhinWebtoonAdapter
-  implements WebtoonSourceAdapter<any, LezhinContext>
-{
+export class LezhinWebtoonAdapter implements WebtoonSourceAdapter<
+  any,
+  LezhinContext
+> {
   readonly platform = 'lezhin';
 
   private static readonly DAY_MAP: Record<string, string> = {
@@ -50,7 +51,7 @@ export class LezhinWebtoonAdapter
     // DB에 이미 19금으로 저장돼 있다면 무조건 true를, 아니면 외부 API 값을 그대로 신뢰
     const isAdult = context.isAlreadyAdultInDB ? true : raw.isAdult || false;
 
-    return {
+    return toValidatedWebtoonDto({
       id: `lezhin_${raw.id}`,
       titleId: String(raw.id),
       alias: raw.alias,
@@ -63,6 +64,6 @@ export class LezhinWebtoonAdapter
       isAdult,
       up: raw.badges ? String(raw.badges).toLowerCase().includes('up') : false,
       platform: this.platform,
-    };
+    });
   }
 }
