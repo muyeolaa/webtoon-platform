@@ -67,21 +67,55 @@ describe('WebtoonService', () => {
         ...overrides,
       }) as Webtoon;
 
-    it('후보군이 10개 초과이면 정확히 10개만 반환한다', async () => {
-      const candidates = Array.from({ length: 40 }, (_, i) =>
-        makeWebtoon(String(i)),
+    it('플랫폼별 후보군이 쿼터 초과이면 네이버 14 + 카카오 13 = 27개를 반환한다', async () => {
+      const naverCandidates = Array.from({ length: 60 }, (_, i) =>
+        makeWebtoon(`naver-${i}`, { platform: 'naver' }),
       );
-      qbMock.getMany.mockResolvedValue(candidates);
+      const kakaoCandidates = Array.from({ length: 60 }, (_, i) =>
+        makeWebtoon(`kakao-${i}`, { platform: 'kakao' }),
+      );
+      qbMock.getMany
+        .mockResolvedValueOnce(naverCandidates)
+        .mockResolvedValueOnce(kakaoCandidates);
 
       const result = await service.getHomepageRecommendations();
 
-      expect(result).toHaveLength(10);
-      expect(qbMock.take).toHaveBeenCalledWith(40);
+      expect(result).toHaveLength(27);
+      // 쿼터(네이버14/카카오13) × 풀 배수(4)만큼 각각 take
+      expect(qbMock.take).toHaveBeenCalledWith(56);
+      expect(qbMock.take).toHaveBeenCalledWith(52);
+      expect(qbMock.andWhere).toHaveBeenCalledWith(
+        'webtoon.platform = :platform',
+        {
+          platform: 'naver',
+        },
+      );
+      expect(qbMock.andWhere).toHaveBeenCalledWith(
+        'webtoon.platform = :platform',
+        {
+          platform: 'kakao',
+        },
+      );
     });
 
-    it('후보군이 10개 미만이면 있는 만큼만 반환한다', async () => {
-      const candidates = [makeWebtoon('1'), makeWebtoon('2')];
-      qbMock.getMany.mockResolvedValue(candidates);
+    it('카카오 후보가 없으면 부족분을 네이버 풀에서 채운다', async () => {
+      const naverCandidates = Array.from({ length: 60 }, (_, i) =>
+        makeWebtoon(`naver-${i}`, { platform: 'naver' }),
+      );
+      qbMock.getMany
+        .mockResolvedValueOnce(naverCandidates)
+        .mockResolvedValueOnce([]);
+
+      const result = await service.getHomepageRecommendations();
+
+      expect(result).toHaveLength(27);
+      expect(result.every((card) => card.platform === 'naver')).toBe(true);
+    });
+
+    it('전체 후보군이 27개 미만이면 있는 만큼만 반환한다', async () => {
+      qbMock.getMany
+        .mockResolvedValueOnce([makeWebtoon('1'), makeWebtoon('2')])
+        .mockResolvedValueOnce([]);
 
       const result = await service.getHomepageRecommendations();
 

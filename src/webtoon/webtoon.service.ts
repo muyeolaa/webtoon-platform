@@ -547,10 +547,77 @@ export class WebtoonService {
   }
 
   // =========================================================================
-  // 🚀 홈페이지 추천 캐러셀: 인기순 후보군을 셔플해서 10개 반환
+  // 🚀 홈페이지 추천 캐러셀: 플랫폼별 쿼터로 27개 반환 (모바일 9페이지×3 기준)
+  // 플랫폼마다 trendingScore의 절대적 크기가 달라(카카오 평점이 구조적으로 높게
+  // 잡혀 신뢰도가 낮음) 플랫폼 간에 점수를 직접 비교할 수 없다. 그래서 플랫폼별로
+  // 후보군을 따로 뽑아(플랫폼 내부에서만 trendingScore로 정렬) 정해진 비율만큼
+  // 섞는다. 레진은 장르별로 눈에 띄는 작품이 적어 쿼터에서 제외.
   // =========================================================================
+  private static readonly RECOMMENDATION_PLATFORM_QUOTAS: Record<
+    string,
+    number
+  > = {
+    naver: 14,
+    kakao: 13,
+  };
+  private static readonly RECOMMENDATION_POOL_MULTIPLIER = 4;
+  private static readonly RECOMMENDATION_TOTAL = 27;
+
   async getHomepageRecommendations(genre?: string, isAdultFlag?: string) {
-    const qb = this.webtoonRepository.createQueryBuilder('webtoon');
+    const quotas = WebtoonService.RECOMMENDATION_PLATFORM_QUOTAS;
+    const platforms = Object.keys(quotas);
+
+    const platformPools = await Promise.all(
+      platforms.map((platform) =>
+        this.fetchPlatformCandidates(
+          platform,
+          quotas[platform] * WebtoonService.RECOMMENDATION_POOL_MULTIPLIER,
+          genre,
+          isAdultFlag,
+        ),
+      ),
+    );
+
+    const shuffle = <T>(list: T[]): T[] =>
+      [...list].sort(() => 0.5 - Math.random());
+
+    const picked: Webtoon[] = [];
+    platforms.forEach((platform, index) => {
+      picked.push(...shuffle(platformPools[index]).slice(0, quotas[platform]));
+    });
+
+    // 특정 플랫폼 후보가 쿼터보다 적으면(예: 이 장르엔 카카오 작품이 없음)
+    // 부족분을 네이버 풀(platformPools[0])에서 채운다.
+    if (picked.length < WebtoonService.RECOMMENDATION_TOTAL) {
+      const pickedIds = new Set(picked.map((w) => w.id));
+      const backfillPool = platformPools[0].filter((w) => !pickedIds.has(w.id));
+      picked.push(
+        ...shuffle(backfillPool).slice(
+          0,
+          WebtoonService.RECOMMENDATION_TOTAL - picked.length,
+        ),
+      );
+    }
+
+    if (picked.length === 0) return [];
+
+    const finalOrder = shuffle(picked).slice(
+      0,
+      WebtoonService.RECOMMENDATION_TOTAL,
+    );
+
+    return finalOrder.map((webtoon) => this.formatWebtoonCard(webtoon));
+  }
+
+  private async fetchPlatformCandidates(
+    platform: string,
+    take: number,
+    genre?: string,
+    isAdultFlag?: string,
+  ): Promise<Webtoon[]> {
+    const qb = this.webtoonRepository
+      .createQueryBuilder('webtoon')
+      .andWhere('webtoon.platform = :platform', { platform });
 
     if (isAdultFlag === 'false') {
       qb.andWhere('webtoon.isAdult = :isAdultFlag', { isAdultFlag: false });
@@ -558,19 +625,11 @@ export class WebtoonService {
 
     this.applyGenreFilter(qb, genre);
 
-    const candidates = await qb
+    return qb
       .orderBy('webtoon.trendingScore', 'DESC')
       .addOrderBy('webtoon.viewCount', 'DESC')
-      .take(40)
+      .take(take)
       .getMany();
-
-    if (candidates.length === 0) return [];
-
-    // Node.js 메모리에서 배열 셔플 (getRecommendedWebtoons와 동일 패턴)
-    const shuffled = candidates.sort(() => 0.5 - Math.random());
-    const picked = shuffled.slice(0, 10);
-
-    return picked.map((webtoon) => this.formatWebtoonCard(webtoon));
   }
 
   // GENRE_GROUPS 기반 장르 필터링 헬퍼 (getPaginatedWebtoons, getHomepageRecommendations 공용)
